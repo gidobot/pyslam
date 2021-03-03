@@ -28,7 +28,8 @@ timer = TimerFps()
 
 #img = cv2.imread('../data/kitti06-12.png',cv2.IMREAD_COLOR)
 #img = cv2.imread('../data/kitti06-435.png',cv2.IMREAD_COLOR)
-img = cv2.imread('../data/kitti06-12-color.png',cv2.IMREAD_COLOR)
+# img = cv2.imread('../data/kitti06-12-color.png',cv2.IMREAD_COLOR)
+img = cv2.imread('../data/underwater/23_left.png',cv2.IMREAD_COLOR)
 #img = cv2.imread('../data/mars1.png')
 
 num_features=2000
