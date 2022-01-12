@@ -173,12 +173,14 @@ tracker_type = FeatureTrackerTypes.DES_BF      # descriptor-based, brute force m
 # tracker_config = FeatureTrackerConfigs.TEST
 # tracker_config = FeatureTrackerConfigs.ORB
 # tracker_config = FeatureTrackerConfigs.SIFT
-# tracker_config = FeatureTrackerConfigs.SUPERPOINT
+tracker_config = FeatureTrackerConfigs.SUPERPOINT
 # tracker_config = FeatureTrackerConfigs.ORB2_FREAK
-tracker_config = FeatureTrackerConfigs.ROOT_SIFT
+# tracker_config = FeatureTrackerConfigs.ROOT_SIFT
+# tracker_config = FeatureTrackerConfigs.SIFT_HARDNET
+# tracker_config = FeatureTrackerConfigs.SURF_SIFT
 # tracker_config = FeatureTrackerConfigs.CONTEXTDESC
 tracker_config['num_features'] = num_features
-tracker_config['match_ratio_test'] = 0.8        # 0.7 is the default in feature_tracker_configs.py
+tracker_config['match_ratio_test'] = 0.85        # 0.7 is the default in feature_tracker_configs.py
 tracker_config['tracker_type'] = tracker_type
 print('feature_manager_config: ',tracker_config)
 
@@ -194,15 +196,18 @@ feature_tracker = feature_tracker_factory(**tracker_config)
 N=1
 for i in range(N):
     
-    # Find the keypoints and descriptors in img1
+    timer.start()
+
+    # # Find the keypoints and descriptors in img1
     kps1, des1 = feature_tracker.detectAndCompute(img1)
     
-    timer.start()
-    # Find the keypoints and descriptors in img2    
+    # # Find the keypoints and descriptors in img2    
     kps2, des2 = feature_tracker.detectAndCompute(img2)
+
     # Find matches    
     idx1, idx2 = feature_tracker.matcher.match(des1, des2)
     timer.refresh()
+
 
 print('#kps1: ', len(kps1))
 if des1 is not None: 
@@ -268,7 +273,7 @@ if kps1_matched.shape[0] > 10:
         kps1_matched_normalized = normalizeFisheye(kps1_matched)
         kps2_matched_normalized = normalizePerspective(kps2_matched)
         # note threshold is normalized
-        E, mask = cv2.findEssentialMat(kps1_matched_normalized, kps2_matched_normalized, focal=1, pp=(0., 0.), method=cv2.RANSAC, prob=0.999, threshold=3.0/729.)
+        E, mask = cv2.findEssentialMat(kps1_matched_normalized, kps2_matched_normalized, focal=1, pp=(0., 0.), method=cv2.RANSAC, prob=0.999, threshold=0.3/729.)
         worldpoints, R_est, t_est, mask_pose = cv2.recoverPose(E, kps1_matched_normalized, kps2_matched_normalized)
         n_inlier = np.count_nonzero(mask)
         q_est = mat2quat(R_est) # wxyz

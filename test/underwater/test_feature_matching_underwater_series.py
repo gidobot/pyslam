@@ -24,26 +24,56 @@ from utils_knfu_slam import normalizeFisheye, normalizePerspective, clipScaleRat
 from feature_tracker_configs import FeatureTrackerConfigs
 
 
-# TRACKERS = ['SIFT', 'ROOT_SIFT', 'ORB', 'ORB2', 'CONTEXTDESC']
-# TRACKERS = ['SUPERPOINT']
-# TRACKERS = ['ORB2']
+# TRACKERS = ['SIFT', 'ROOT_SIFT', 'ORB', 'SURF', 'AKAZE', 'CONTEXTDESC']
+TRACKERS = ['SUPERPOINT']
+# TRACKERS = ['ORB']
 # TRACKERS = ['AKAZE']
-TRACKERS = ['ROOT_SIFT']
+# TRACKERS = ['CONTEXTDESC']
+# TRACKERS = ['ROOT_SIFT', 'SIFT']
+# TRACKERS = ['SURF_SIFT']
+# TRACKERS = ['SURF']
 
-# root_dir = "/media/Data/PSTAR/Reconstruction_Datasets/UWHandles/20181221/SlopeAndMagneticSeep/set1/arrangement3/tagslam"
-root_dir = "/media/Data/PSTAR/Reconstruction_Datasets/UWHandles/20181221/SlopeAndMagneticSeep/set2/tagslam"
-# root_dir = "/media/Data/PSTAR/Reconstruction_Datasets/UWHandles/20181220/Mound12/set1/arrangement3/tagslam"
-# root_dir = "/media/Data/PSTAR/Reconstruction_Datasets/UWHandles/20181219/Mounds1011/set1/arrangement1/tagslam"
+# root_dir = "/media/Data/PSTAR/Reconstruction_Datasets/UWHandles/20181221/SlopeAndMagneticSeep/set1/arrangement3/tagslam_old"
+root_dir = "/media/Data/PSTAR/Reconstruction_Datasets/UWHandles/20181221/SlopeAndMagneticSeep/set2/tagslam_old"
+# root_dir = "/media/Data/PSTAR/Reconstruction_Datasets/UWHandles/20181220/Mound12/set1/arrangement3/tagslam_old"
+# root_dir = "/media/Data/PSTAR/Reconstruction_Datasets/UWHandles/20181219/Mounds1011/set1/arrangement1/tagslam_old"
 gt_file = None
 with open(osp.join(root_dir, "camera_poses.txt")) as file:
     gt_file = np.array(list(csv.reader(file)), np.double)
 seq_length = gt_file.shape[0]
 # output_files = [open(osp.join(root_dir, "tracker_poses_"+t+"_CLIPPED"+".txt"),'w') for t in TRACKERS]
+# output_files = [open(osp.join(root_dir, "tracker_poses_"+t+"_opt.txt"),'w') for t in TRACKERS]
 output_files = [open(osp.join(root_dir, "tracker_poses_"+t+".txt"),'w') for t in TRACKERS]
 
 #============================================
 # Helper Functions  
 #============================================  
+
+def draw_imgs():
+    img_matched_inliers = None 
+    draw_horizontal_layout = True
+    if mask is not None:    
+        # Build arrays of matched inliers 
+        mask_idxs = (mask.ravel() == 1)    
+        
+        kps1_matched_inliers = kps1_matched[mask_idxs]
+        kps1_size_inliers = kps1_size[mask_idxs]
+        des1_matched_inliers  = des1_matched[mask_idxs][:]    
+        kps2_matched_inliers = kps2_matched[mask_idxs]   
+        kps2_size_inliers = kps2_size[mask_idxs]    
+        des2_matched_inliers  = des2_matched[mask_idxs][:]        
+        print('num inliers: ', len(kps1_matched_inliers))
+        print('inliers percentage: ', len(kps1_matched_inliers)/max(len(kps1_matched),1.)*100,'%')
+            
+        sigma_mad_inliers, dists = descriptor_sigma_mad(des1_matched_inliers,des2_matched_inliers,descriptor_distances=feature_trackers[i].descriptor_distances)
+        print('3 x sigma-MAD of descriptor distances (inliers): ', 3 * sigma_mad_inliers)  
+        #print('distances: ', dists)  
+        img_matched_inliers = draw_feature_matches(img1, img2, kps1_matched_inliers, kps2_matched_inliers, kps1_size_inliers, kps2_size_inliers,draw_horizontal_layout)    
+    img_matched = draw_feature_matches(img1, img2, kps1_matched, kps2_matched, kps1_size, kps2_size, draw_horizontal_layout)
+    # fig1 = MPlotFigure(img_matched, title='All matches')
+    if img_matched_inliers is not None: 
+        fig2 = MPlotFigure(img_matched_inliers, title='Inlier matches')
+    MPlotFigure.show()
 
 def read_pose(idx):
     row = gt_file[idx]
@@ -72,10 +102,12 @@ tracker_type = FeatureTrackerTypes.DES_BF      # descriptor-based, brute force m
 # tracker_type = FeatureTrackerTypes.DES_FLANN  # descriptor-based, FLANN-based matching 
 
 tracker_configs = [getattr(FeatureTrackerConfigs, t) for t in TRACKERS]
-for t in tracker_configs:
+for i, t in enumerate(tracker_configs):
     t['num_features'] = num_features
     t['match_ratio_test'] = 0.8        # 0.7 is the default in feature_tracker_configs.py
     t['tracker_type'] = tracker_type
+    if TRACKERS[i] == 'CONTEXTDESC':
+        t['match_ratio_test'] = 0.9        # 0.7 is the default in feature_tracker_configs.py
     print('feature_manager_config: ',t)
 
 feature_trackers = [feature_tracker_factory(**t) for t in tracker_configs]
@@ -116,25 +148,31 @@ for idx in range(0, seq_length, step):
         print('number of matches: ', len(idx1))
 
         # ROOT_SIFT scale ratios
-        if TRACKERS[i] == 'ROOT_SIFT':
-            # idx1, idx2 = clipScaleRatioSIFT(idx1, idx2, kps1, kps2)
-            scales1 = np.array([x.octave for x in kps1], dtype=np.float32) 
-            scales2 = np.array([x.octave for x in kps2], dtype=np.float32)
-            scales1_matched = scales1[idx1]
-            scales2_matched = scales2[idx2]
-            sr = [scales2_matched[i] - scales1_matched[i] for i in range(scales1_matched.size)]
-            scale_ratios = scale_ratios + sr
+        # if TRACKERS[i] == 'ROOT_SIFT':
+        #     # idx1, idx2 = clipScaleRatioSIFT(idx1, idx2, kps1, kps2)
+        #     scales1 = np.array([x.octave for x in kps1], dtype=np.float32) 
+        #     scales2 = np.array([x.octave for x in kps2], dtype=np.float32)
+        #     scales1_matched = scales1[idx1]
+        #     scales2_matched = scales2[idx2]
+        #     sr = [scales2_matched[i] - scales1_matched[i] for i in range(scales1_matched.size)]
+        #     scale_ratios = scale_ratios + sr
 
         # Convert from list of keypoints to an array of points 
         kps1 = np.array([x.pt for x in kps1], dtype=np.float32) 
         kps2 = np.array([x.pt for x in kps2], dtype=np.float32)
 
+        # Get keypoint size 
+        kps1_size = np.array([x.size for x in kps1], dtype=np.float32)  
+        kps2_size = np.array([x.size for x in kps2], dtype=np.float32) 
+
         # Build arrays of matched keypoints, descriptors, sizes 
         kps1_matched = kps1[idx1]
         des1_matched = des1[idx1][:]
+        kps1_size = kps1_size[idx1]
 
         kps2_matched = kps2[idx2]
         des2_matched = des2[idx2][:]
+        kps2_size = kps2_size[idx2]
 
         # Init inliers mask
         mask = None 
@@ -157,6 +195,7 @@ for idx in range(0, seq_length, step):
             kps1_matched_inliers = kps1_matched[mask_idxs]
             print('num inliers: ', len(kps1_matched_inliers))
             print('inliers percentage: ', len(kps1_matched_inliers)/max(len(kps1_matched),1.)*100,'%')
+            # draw_imgs()
         else:
             mask = None 
             print('Not enough matches are found')
