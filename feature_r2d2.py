@@ -165,7 +165,7 @@ class R2d2Feature2D:
                  max_scale = 1,                
                  reliability_thr   = 0.7,   
                  repeatability_thr = 0.7,  
-                 do_cuda=True):    
+                 do_cuda=False):    
         print('Using R2d2Feature2D')    
         self.lock = RLock()             
         self.model_base_path = config.cfg.root_folder + '/thirdparty/r2d2'        

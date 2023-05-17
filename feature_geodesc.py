@@ -17,7 +17,6 @@
 * along with PYSLAM. If not, see <http://www.gnu.org/licenses/>.
 """
 
-
 import config
 config.cfg.set_lib('geodesc',prepend=True) 
   

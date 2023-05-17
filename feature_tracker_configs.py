@@ -193,6 +193,22 @@ class FeatureTrackerConfigs(object):
                        descriptor_type = FeatureDescriptorTypes.CONTEXTDESC, 
                        match_ratio_test = kRatioTest,
                        tracker_type = kTrackerType)
+
+    ASLFEAT = dict(num_features=kNumFeatures,                   
+                       num_levels = 1,                                  
+                       scale_factor = 1.2,                              
+                       detector_type = FeatureDetectorTypes.ASLFEAT, 
+                       descriptor_type = FeatureDescriptorTypes.ASLFEAT, 
+                       match_ratio_test = kRatioTest,
+                       tracker_type = kTrackerType)
+
+    R2D2 = dict(num_features=kNumFeatures,                   
+                       num_levels = 1,                                  
+                       scale_factor = 1.2,                              
+                       detector_type = FeatureDetectorTypes.R2D2, 
+                       descriptor_type = FeatureDescriptorTypes.R2D2, 
+                       match_ratio_test = kRatioTest,
+                       tracker_type = kTrackerType)
     
     KEYNET = dict(num_features=kNumFeatures,                   
                        num_levels = 1,                                  

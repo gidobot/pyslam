@@ -12,10 +12,12 @@ from .base_model import BaseModel
 from .cnn_wrapper.descnet import GeoDesc, DenseGeoDesc
 from .cnn_wrapper.augdesc import MatchabilityPrediction
 
-sys.path.append('..')
+# sys.path.append('..')
+# from ..utils.opencvhelper import SiftWrapper
+# from ..utils.spatial_transformer import transformer_crop
 
-from ..utils.opencvhelper import SiftWrapper
-from ..utils.spatial_transformer import transformer_crop
+from utils.opencvhelper import SiftWrapper
+from utils.spatial_transformer import transformer_crop
 
 
 class LocModel(BaseModel):

@@ -52,6 +52,7 @@ LogpolarFeature2D = import_from('feature_logpolar', 'LogpolarFeature2D')
 D2NetFeature2D = import_from('feature_d2net', 'D2NetFeature2D')
 DelfFeature2D = import_from('feature_delf', 'DelfFeature2D')
 ContextDescFeature2D = import_from('feature_contextdesc', 'ContextDescFeature2D')
+ASLFeature2D = import_from('feature_aslfeat', 'ASLFeature2D')
 LfNetFeature2D = import_from('feature_lfnet', 'LfNetFeature2D')
 R2d2Feature2D = import_from('feature_r2d2', 'R2d2Feature2D')
 KeyNetDescFeature2D = import_from('feature_keynet', 'KeyNetDescFeature2D')
@@ -463,6 +464,13 @@ class FeatureManager(object):
             self.keypoint_filter_type = KeyPointFilterTypes.NONE
             #    
             #     
+        elif self.detector_type == FeatureDetectorTypes.ASLFEAT:  
+            self.need_color_image = True        
+            #self.num_levels = - # internally recomputed               
+            self._feature_detector = ASLFeature2D(num_features=self.num_features)
+            self.keypoint_filter_type = KeyPointFilterTypes.NONE
+            #    
+            #     
         elif self.detector_type == FeatureDetectorTypes.KEYNET:       
             #self.num_levels = - # internally recomputed               
             self._feature_detector = KeyNetDescFeature2D(num_features=self.num_features)          
@@ -648,6 +656,14 @@ class FeatureManager(object):
                 self.need_color_image = True           
                 if self.detector_type != FeatureDetectorTypes.R2D2: 
                     raise ValueError("You cannot use R2D2 descriptor without R2D2 detector!\nPlease, select R2D2 as both descriptor and detector!")
+                self._feature_descriptor = self._feature_detector  # reuse detector object                                     
+                #
+                #     
+            elif self.descriptor_type == FeatureDescriptorTypes.ASLFEAT:   
+                self.oriented_features = False                     
+                self.need_color_image = True           
+                if self.detector_type != FeatureDetectorTypes.ASLFEAT: 
+                    raise ValueError("You cannot use ASLFEAT descriptor without ASLFEAT detector!\nPlease, select ASLFEAT as both descriptor and detector!")
                 self._feature_descriptor = self._feature_detector  # reuse detector object                                     
                 #
                 #     

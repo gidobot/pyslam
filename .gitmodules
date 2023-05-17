@@ -31,3 +31,6 @@
 [submodule "thirdparty/disk"]
 	path = thirdparty/disk
 	url = https://github.com/cvlab-epfl/disk.git
+[submodule "thirdparty/ASLFeat"]
+	path = thirdparty/ASLFeat
+	url = https://github.com/lzx551402/ASLFeat.git

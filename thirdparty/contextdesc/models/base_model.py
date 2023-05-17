@@ -11,9 +11,10 @@ from abc import ABCMeta, abstractmethod
 import collections
 import tensorflow as tf
 
-sys.path.append('..')
+# sys.path.append('..')
+# from ..utils.tf import load_frozen_model, recoverer
 
-from ..utils.tf import load_frozen_model, recoverer
+from utils.tf import load_frozen_model, recoverer
 
 
 def dict_update(d, u):
