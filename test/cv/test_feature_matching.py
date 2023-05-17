@@ -2,6 +2,9 @@ import sys
 import numpy as np
 import cv2 
 from matplotlib import pyplot as plt
+from transforms3d.quaternions import mat2quat, qconjugate, qmult, quat2mat
+import csv
+from os import path as osp
 
 sys.path.append("../../")
 from config import Config
@@ -15,11 +18,41 @@ from utils_img import combine_images_horizontally, rotate_img, transform_img, ad
 from utils_geom import add_ones
 from utils_features import descriptor_sigma_mad, compute_hom_reprojection_error
 from utils_draw import draw_feature_matches
+from utils_knfu_slam import normalizeFisheye, normalizePerspective
 
 from feature_tracker_configs import FeatureTrackerConfigs
 
 from timer import TimerFps
 
+#============================================
+# Helper Functions  
+#============================================  
+
+uw_root_dir = "/media/Data/PSTAR/Reconstruction_Datasets/UWHandles/20181221/SlopeAndMagneticSeep/set1/arrangement3/tagslam"
+def read_pose(idx):
+    # gt tf Translation: [-0.089, -0.364, 1.328]
+    #       Rotation: in Quaternion [-0.305, 0.061, 0.149, 0.939]
+    with open(osp.join(uw_root_dir, "camera_poses.txt")) as file:
+        reader = csv.reader(file)
+        row = np.array(list(reader)[idx], np.double)
+        t_fish = row[1:4]
+        q_fish = row[4:8] # wxyz
+        T_fish = np.eye(4)
+        T_fish[:3,:3] = quat2mat(q_fish)
+        T_fish[:3,3] = t_fish
+        T_fish = np.linalg.inv(T_fish)
+        # invert stereo pose to get world to stereo tf
+        t_left = row[8:11]
+        q_left = row[11:15]
+        T_left = np.eye(4)
+        T_left[:3,:3] = quat2mat(q_left)
+        T_left[:3,3] = t_left
+        # T_left = np.linalg.inv(T_left)
+        # take tf difference between stereo and fisheye
+        T_diff = T_left.dot(T_fish)
+        t_diff = T_diff[:3,3]
+        q_diff = mat2quat(T_diff[:3,:3])
+        return np.append(t_diff, q_diff, axis=0)
 
 # ==================================================================================================
 # N.B.: test the feature tracker and its feature matching capability 
@@ -37,8 +70,9 @@ img1, img2 = None, None       # var initialization
 img1_box = None               # image 1 bounding box (initialization)
 model_fitting_type = None     # 'homography' or 'fundamental' (automatically set below, this is an initialization)
 draw_horizontal_layout=True   # draw matches with the two images in an horizontal or vertical layout (automatically set below, this is an initialization) 
+gt_pose = None
 
-test_type='graf'             # select the test type (there's a template below to add your test)
+test_type='underwater'             # select the test type (there's a template below to add your test)
 #  
 if test_type == 'box': 
     img1 = cv2.imread('../data/box.png')          # queryImage  
@@ -73,7 +107,19 @@ if test_type == 'mars':
     img2 = cv2.imread('../data/mars2.png') # trainImage
     model_fitting_type='homography' 
     draw_horizontal_layout = True         
-# 
+#
+if test_type == 'underwater':
+    idx = 166
+    img1 = cv2.imread(osp.join(uw_root_dir, "images/raw", str(idx) + '_fish.png')) # queryImage
+    img2 = cv2.imread(osp.join(uw_root_dir, "images/raw", str(idx) + '_left.png')) # trainImage
+    img1 = cv2.cvtColor(img1, cv2.COLOR_BGR2RGB)
+    img2 = cv2.cvtColor(img2, cv2.COLOR_BGR2RGB)
+    model_fitting_type='essential'
+    draw_horizontal_layout = True
+    # Get ground truth pose between stereo and fisheye
+    gt_pose = read_pose(idx)
+
+#
 # if test_type == 'your test':   # add your test here 
 #     img1 = cv2.imread('...') 
 #     img2 = cv2.imread('...')
@@ -117,10 +163,15 @@ if False:
 num_features=2000 
 
 tracker_type = FeatureTrackerTypes.DES_BF      # descriptor-based, brute force matching with knn 
-#tracker_type = FeatureTrackerTypes.DES_FLANN  # descriptor-based, FLANN-based matching 
+# tracker_type = FeatureTrackerTypes.DES_FLANN  # descriptor-based, FLANN-based matching 
 
 # select your tracker configuration (see the file feature_tracker_configs.py) 
-tracker_config = FeatureTrackerConfigs.TEST
+# tracker_config = FeatureTrackerConfigs.TEST
+# tracker_config = FeatureTrackerConfigs.ORB
+# tracker_config = FeatureTrackerConfigs.SIFT
+# tracker_config = FeatureTrackerConfigs.SUPERPOINT
+# tracker_config = FeatureTrackerConfigs.ROOT_SIFT
+tracker_config = FeatureTrackerConfigs.CONTEXTDESC
 tracker_config['num_features'] = num_features
 tracker_config['match_ratio_test'] = 0.8        # 0.7 is the default in feature_tracker_configs.py
 tracker_config['tracker_type'] = tracker_type
@@ -207,6 +258,25 @@ if kps1_matched.shape[0] > 10:
         
         reprojection_error = compute_hom_reprojection_error(H, kps1_matched, kps2_matched, mask)
         print('reprojection error: ', reprojection_error)
+    elif model_fitting_type == 'essential':
+        kps1_matched_normalized = normalizeFisheye(kps1_matched)
+        kps2_matched_normalized = normalizePerspective(kps2_matched)
+        # note threshold is normalized
+        E, mask = cv2.findEssentialMat(kps1_matched_normalized, kps2_matched_normalized, focal=1, pp=(0., 0.), method=cv2.RANSAC, prob=0.999, threshold=3.0/729.)
+        worldpoints, R_est, t_est, mask_pose = cv2.recoverPose(E, kps1_matched_normalized, kps2_matched_normalized)
+        n_inlier = np.count_nonzero(mask)
+        q_est = mat2quat(R_est) # wxyz
+        # refine estimate
+        import KnFUSLAM.ransac.pyRansac as erefine
+        pose = erefine.newEPose()
+        pose.x, pose.y, pose.z = [t_est[i,0] for i in range(len(t_est))]
+        pose.qw, pose.qx, pose.qy, pose.qz = [q_est[i] for i in range(len(q_est))]
+        refiner = erefine.CRefineEOnRTManifold()
+        # Think points get passed backwards 
+        pose_ref = refiner.refineRobustOnMask(kps1_matched_normalized, kps2_matched_normalized, mask.flatten(), pose)
+        print("gt: {}".format(gt_pose[:3]))
+        print("ransac: {}".format(np.array(t_est*np.linalg.norm(gt_pose[:3])).flatten()))
+        print("refined: {}".format(np.array([pose.x, pose.y, pose.z]).flatten()*np.linalg.norm(gt_pose[:3])))
     else:  
         F, mask = cv2.findFundamentalMat(kps1_matched, kps2_matched, cv2.RANSAC, fmat_err_thld, confidence=0.999)
         n_inlier = np.count_nonzero(mask)

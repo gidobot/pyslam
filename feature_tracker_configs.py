@@ -166,6 +166,12 @@ class FeatureTrackerConfigs(object):
                      descriptor_type = FeatureDescriptorTypes.ROOT_SIFT, 
                      match_ratio_test = kRatioTest,                              
                      tracker_type = kTrackerType)    
+
+    SIFT_HARDNET = dict(num_features=kNumFeatures,
+                detector_type = FeatureDetectorTypes.SIFT, 
+                descriptor_type = FeatureDescriptorTypes.HARDNET, 
+                match_ratio_test = kRatioTest,                         
+                tracker_type = kTrackerType)
     
     # NOTE: SURF is a patented algorithm and not included in the new opencv versions 
     #       If you want to test it, you can install and old version of opencv that supports it: run 
@@ -175,6 +181,13 @@ class FeatureTrackerConfigs(object):
                 num_levels = 8,
                 detector_type = FeatureDetectorTypes.SURF, 
                 descriptor_type = FeatureDescriptorTypes.SURF, 
+                match_ratio_test = kRatioTest,                         
+                tracker_type = kTrackerType)
+
+    SURF_SIFT = dict(num_features=kNumFeatures,
+                num_levels = 8,
+                detector_type = FeatureDetectorTypes.SURF, 
+                descriptor_type = FeatureDescriptorTypes.ROOT_SIFT, 
                 match_ratio_test = kRatioTest,                         
                 tracker_type = kTrackerType)
         

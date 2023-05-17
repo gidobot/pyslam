@@ -46,7 +46,6 @@ seq_length = gt_file.shape[0]
 # output_files = [open(osp.join(root_dir, "tracker_poses_"+t+"_CLIPPED"+".txt"),'w') for t in TRACKERS]
 # output_files = [open(osp.join(root_dir, "tracker_poses_"+t+"_opt.txt"),'w') for t in TRACKERS]
 output_files = [open(osp.join(root_dir, "tracker_poses_"+t+".txt"),'w') for t in TRACKERS]
-# output_files = [open(osp.join("./", "tracker_poses_"+t+".txt"),'w') for t in TRACKERS]
 
 #============================================
 # Helper Functions  
@@ -109,7 +108,7 @@ for i, t in enumerate(tracker_configs):
     t['num_features'] = num_features
     t['match_ratio_test'] = 0.8        # 0.7 is the default in feature_tracker_configs.py
     t['tracker_type'] = tracker_type
-    if TRACKERS[i] == 'CONTEXTDESC' or TRACKERS[i] == 'R2D2' or TRACKERS[i] == 'ASLFEAT':
+    if TRACKERS[i] == 'CONTEXTDESC':
         t['match_ratio_test'] = 0.9        # 0.7 is the default in feature_tracker_configs.py
     print('feature_manager_config: ',t)
 
@@ -161,15 +160,12 @@ for idx in range(0, seq_length, step):
         #     scale_ratios = scale_ratios + sr
 
         # Convert from list of keypoints to an array of points 
-        if TRACKERS[i] != 'ASLFEAT':
-            kps1 = np.array([x.pt for x in kps1], dtype=np.float32) 
-            kps2 = np.array([x.pt for x in kps2], dtype=np.float32)
-            # Get keypoint size 
-            kps1_size = np.array([x.size for x in kps1], dtype=np.float32)  
-            kps2_size = np.array([x.size for x in kps2], dtype=np.float32) 
-        else:
-            kps1_size = 5*np.ones(kps1.shape[0], dtype=np.float32)  
-            kps2_size = 5*np.ones(kps2.shape[0], dtype=np.float32)  
+        kps1 = np.array([x.pt for x in kps1], dtype=np.float32) 
+        kps2 = np.array([x.pt for x in kps2], dtype=np.float32)
+
+        # Get keypoint size 
+        kps1_size = np.array([x.size for x in kps1], dtype=np.float32)  
+        kps2_size = np.array([x.size for x in kps2], dtype=np.float32) 
 
         # Build arrays of matched keypoints, descriptors, sizes 
         kps1_matched = kps1[idx1]

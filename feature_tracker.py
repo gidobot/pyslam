@@ -215,6 +215,13 @@ class DescriptorFeatureTracker(FeatureTracker):
     def detectAndCompute(self, frame, mask=None):
         return self.feature_manager.detectAndCompute(frame, mask) 
 
+    # out: keypoints 
+    def detect(self, frame, mask=None):
+        return self.feature_manager.detect(frame, mask) 
+
+    # out: descriptors 
+    def compute(self, frame, kps):
+        return self.feature_manager.compute(frame, kps) 
 
     # out: FeatureTrackingResult()
     def track(self, image_ref, image_cur, kps_ref, des_ref):
