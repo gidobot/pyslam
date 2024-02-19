@@ -1,6 +1,7 @@
 import sys
 from queue import Queue
 from threading import Thread
+import time
 
 import os
 from struct import unpack
@@ -21,7 +22,7 @@ from ..utils.spatial_transformer import transformer_crop
 class LocModel(BaseModel):
     output_tensors = ["conv6_feat:0", "kpt_mb:0"]
     default_config = {'n_feature': 0, "n_sample": 0,
-                      'batch_size': 512, 'sift_wrapper': None, 'upright': False, 'scale_diff': False,
+                      'batch_size': 2000, 'sift_wrapper': None, 'upright': False, 'scale_diff': False,
                       'dense_desc': False, 'sift_desc': False, 'peak_thld': 0.0067, 'edge_thld': 10, 'max_dim': 1280}
 
     def _init_model(self):
@@ -36,6 +37,42 @@ class LocModel(BaseModel):
         self.sift_wrapper.pyr_off = not self.config['scale_diff']
         self.sift_wrapper.create()
 
+    def _set_input_tensor_tflite(self, input):
+        input_details = self.interpreter.get_input_details()[0]
+        tensor_index = input_details['index']
+        input_tensor = self.interpreter.tensor(tensor_index)()
+        # Inputs for the TFLite model must be uint8, so we quantize our input data.
+        # NOTE: This step is necessary only because we're receiving input data from
+        # ImageDataGenerator, which rescaled all image data to float [0,1]. When using
+        # bitmap inputs, they're already uint8 [0,255] so this can be replaced with:
+        input_tensor[:, :, :, :] = input
+        # import pdb; pdb.set_trace()
+        # scale, zero_point = input_details['quantization']
+        # input_tensor[:, :, :, :] = np.int8(input / scale + zero_point)
+        # input_tensor[:, :, :, :] = np.uint8(input / scale + zero_point)
+
+    def _run_tflite(self, input):
+        batch_size = input.shape[0]
+        if batch_size < 2000:
+            # append zeros to make the input batch size 2000
+            input = np.concatenate((input, np.zeros((2000 - input.shape[0], input.shape[1], input.shape[2], input.shape[3]))), axis=0)
+        self._set_input_tensor_tflite(input)
+        self.interpreter.invoke()
+        output_details = self.interpreter.get_output_details()[0]
+        output = self.interpreter.get_tensor(output_details['index'])
+        output = np.squeeze(output)
+        # Outputs from the TFLite model are int8, so we dequantize the results:
+        # scale, zero_point = output_details['quantization']
+        # output = scale * (output - zero_point)
+        # Only return outputs for the input batch size
+        output = np.asarray(output[:batch_size], dtype=np.float32)
+        return output
+
+    def _run_keras(self, input):
+        output = self.model.predict(input)
+        output = np.squeeze(output)
+        return output
+
     def _run(self, data, **kwargs):
         def _worker(patch_queue, sess, loc_feat, kpt_mb):
             """The worker thread."""
@@ -43,10 +80,27 @@ class LocModel(BaseModel):
                 patch_data = patch_queue.get()
                 if patch_data is None:
                     return
-                loc_returns = sess.run(self.output_tensors,
-                                       feed_dict={"input:0": np.expand_dims(patch_data, -1)})
-                loc_feat.append(loc_returns[0])
-                kpt_mb.append(loc_returns[1])
+                if self.config['model_type'] == 'tflite':
+                    loc_returns = self._run_tflite(np.expand_dims(patch_data, -1))
+                    loc_feat.append(loc_returns)
+                    kpt_mb.append(np.ones((loc_returns.shape[0], 1)))
+                elif self.config['model_type'] == 'keras':
+                    loc_returns = self._run_keras(np.expand_dims(patch_data, -1))
+                    loc_feat.append(loc_returns)
+                    kpt_mb.append(np.ones((loc_returns.shape[0], 1)))
+                elif self.config['model_type'] == 'pbv2':
+                    self.output_tensors = ["feat_tower0/conv6/Conv2D:0"]
+                    loc_returns = sess.run(self.output_tensors,
+                                           feed_dict={"input/net_input:0": np.expand_dims(patch_data, -1)})
+                    # squeeze dimensions
+                    loc_returns = np.squeeze(loc_returns[0])
+                    loc_feat.append(loc_returns)
+                    kpt_mb.append(np.ones((loc_returns.shape[0], 1)))
+                else:
+                    loc_returns = sess.run(self.output_tensors,
+                                           feed_dict={"input:0": np.expand_dims(patch_data, -1)})
+                    loc_feat.append(loc_returns[0])
+                    kpt_mb.append(loc_returns[1])
                 patch_queue.task_done()
         gray_img = np.squeeze(data, axis=-1).astype(np.uint8)
         # detect SIFT keypoints.
@@ -79,6 +133,7 @@ class LocModel(BaseModel):
             worker_thread.daemon = True
             worker_thread.start()
             # enqueue
+            start = time.perf_counter()
             for i in range(loop_num + 1):
                 if i < loop_num:
                     patch_queue.put(all_patches[i * batch_size: (i + 1) * batch_size])
@@ -90,6 +145,9 @@ class LocModel(BaseModel):
             worker_thread.join()
             loc_feat = np.concatenate(loc_feat, axis=0)
             kpt_mb = np.concatenate(kpt_mb, axis=0)
+
+            end = time.perf_counter()
+            print("Time to compute {} local descriptors: {}".format(loc_feat.shape[0], end - start))
         else:
             import cv2
             # compose affine crop matrix.
@@ -114,7 +172,6 @@ class LocModel(BaseModel):
                 gray_img = cv2.resize(gray_img, (0, 0), fx=downsample_ratio, fy=downsample_ratio)
 
             gray_img = gray_img[..., np.newaxis]
-
             input_dict = {"input/img:0": np.expand_dims(gray_img, 0),
                           "input/kpt_param:0": np.expand_dims(patch_param, 0)}
             local_returns = self.sess.run(self.output_tensors, feed_dict=input_dict)

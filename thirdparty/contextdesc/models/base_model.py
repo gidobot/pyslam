@@ -56,6 +56,8 @@ class BaseModel(metaclass=ABCMeta):
 
     def __init__(self, model_path, **config):
         self.model_path = model_path
+        self.interpreter = None
+        self.model = None
         # Update config
         self.config = dict_update(getattr(self, 'default_config', {}), config)
         self._init_model()
@@ -80,6 +82,21 @@ class BaseModel(metaclass=ABCMeta):
                     recoverer(self.sess, model_path)
                 else:
                     recoverer(self.sess, model_path, meta_graph_path)
+            elif ext.find('.tflite') == 0:
+                self.sess = None
+                # self.config['tflite'] = True
+                self.config['model_type'] = 'tflite'
+                # self.interpreter = tf.compat.v1.lite.Interpreter(self.model_path)
+                self.interpreter = tf.lite.Interpreter(self.model_path)
+                self.interpreter.resize_tensor_input(0, [self.config['n_feature'], 32, 32, 1])
+                self.interpreter.allocate_tensors()
+            elif ext.find('.hdf5') == 0:
+                self.sess = None
+                self.model = tf.keras.models.load_model(self.model_path)
+            else:
+                print("Unknown model type: {}".format(ext))
+                raise Exception("Unknown model type: {}".format(ext))
+
 
     def close(self):
         if self.sess is not None:

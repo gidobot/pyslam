@@ -67,7 +67,7 @@ class GeodescFeature2D:
         self.mag_factor = 3
         
         # inference batch size        
-        self.batch_size = 512 
+        self.batch_size = 2000 
         self.process_all = True # process all the patches at once   
         
         self.model_base_path = config.cfg.root_folder + '/thirdparty/geodesc/'
@@ -79,6 +79,7 @@ class GeodescFeature2D:
         # create deep feature extractor.
         self.graph = load_frozen_model(self.model_path, print_nodes=False)
         #sess = tf.Session(graph=graph) 
+        self.sess = tf.Session(graph=self.graph, config=tf_config)
         print('==> Successfully loaded pre-trained network.')
                 
 
@@ -89,46 +90,46 @@ class GeodescFeature2D:
         else:
             loop_num = int(num_patch / self.batch_size - 1)
 
-        with tf.Session(graph=self.graph, config=tf_config) as sess:   
-            def _worker(patch_queue, sess, des):
-                """The worker thread."""
-                while True:
-                    patch_data = patch_queue.get()
-                    if patch_data is None:
-                        return
-                    feat = sess.run("squeeze_1:0", feed_dict={"input:0": np.expand_dims(patch_data, -1)})
-                    des.append(feat)
+        # with tf.Session(graph=self.graph, config=tf_config) as sess:   
+        def _worker(patch_queue, sess, des):
+            """The worker thread."""
+            while True:
+                patch_data = patch_queue.get()
+                if patch_data is None:
+                    return
+                feat = self.sess.run("squeeze_1:0", feed_dict={"input:0": np.expand_dims(patch_data, -1)})
+                des.append(feat)
 
-            des = []
-            patch_queue = Queue()
-            worker_thread = Thread(target=_worker, args=(patch_queue, sess, des))
-            worker_thread.daemon = True
-            worker_thread.start()
+        des = []
+        patch_queue = Queue()
+        worker_thread = Thread(target=_worker, args=(patch_queue, self.sess, des))
+        worker_thread.daemon = True
+        worker_thread.start()
 
-            start = time.time()
+        start = time.time()
 
-            # enqueue
-            if not self.process_all:            
-                for i in range(loop_num + 1):
-                    if i < loop_num:
-                        patch_queue.put(patches[i * self.batch_size: (i + 1) * self.batch_size])
-                    else:
-                        patch_queue.put(patches[i * self.batch_size:])
-            else: 
-                patch_queue.put(patches)
-            # poison pill
-            patch_queue.put(None)
-            # wait for extraction.
-            worker_thread.join()
+        # enqueue
+        if not self.process_all:            
+            for i in range(loop_num + 1):
+                if i < loop_num:
+                    patch_queue.put(patches[i * self.batch_size: (i + 1) * self.batch_size])
+                else:
+                    patch_queue.put(patches[i * self.batch_size:])
+        else: 
+            patch_queue.put(patches)
+        # poison pill
+        patch_queue.put(None)
+        # wait for extraction.
+        worker_thread.join()
 
-            end = time.time()
-            if kVerbose:            
-                print('Time cost in feature extraction', end - start)
+        end = time.time()
+        if kVerbose:            
+            print('Time cost in feature extraction', end - start)
 
-            des = np.concatenate(des, axis=0)
-            # quantize output features
-            des = (des * 128 + 128).astype(np.uint8) if self.quantize else des
-            return des          
+        des = np.concatenate(des, axis=0)
+        # quantize output features
+        des = (des * 128 + 128).astype(np.uint8) if self.quantize else des
+        return des          
         
         
     def compute(self, frame, kps, mask=None):  #mask is a fake input  

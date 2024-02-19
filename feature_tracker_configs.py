@@ -193,6 +193,26 @@ class FeatureTrackerConfigs(object):
                        descriptor_type = FeatureDescriptorTypes.CONTEXTDESC, 
                        match_ratio_test = kRatioTest,
                        tracker_type = kTrackerType)
+
+    CONTEXTDESCLOC = dict(num_features=kNumFeatures,                   
+                       num_levels = 1,                                  
+                       scale_factor = 1.2,                              
+                       detector_type = FeatureDetectorTypes.CONTEXTDESCLOC, 
+                       descriptor_type = FeatureDescriptorTypes.CONTEXTDESCLOC, 
+                       match_ratio_test = kRatioTest,
+                       tracker_type = kTrackerType)
+
+    SIFT_L2NET = dict(num_features=kNumFeatures,
+                detector_type = FeatureDetectorTypes.SIFT, 
+                descriptor_type = FeatureDescriptorTypes.L2NET, 
+                match_ratio_test = kRatioTest,                         
+                tracker_type = kTrackerType)
+
+    SIFT_GEODESC = dict(num_features=kNumFeatures,
+                detector_type = FeatureDetectorTypes.SIFT, 
+                descriptor_type = FeatureDescriptorTypes.GEODESC, 
+                match_ratio_test = kRatioTest,                         
+                tracker_type = kTrackerType)
     
     KEYNET = dict(num_features=kNumFeatures,                   
                        num_levels = 1,                                  

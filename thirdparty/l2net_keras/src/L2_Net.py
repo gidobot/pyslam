@@ -16,7 +16,8 @@ from keras.models import Model, load_model, save_model, Sequential
 from keras.layers import Dense, Activation, Dropout, Input, Masking, TimeDistributed, LSTM, Conv1D
 from keras.layers import GRU, Bidirectional, BatchNormalization, Reshape
 from keras.optimizers import Adam
-from keras.backend.tensorflow_backend import set_session
+from keras.backend import set_session
+# from keras.backend.tensorflow_backend import set_session
 if False:
     import tensorflow as tf
 else: 

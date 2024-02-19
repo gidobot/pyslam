@@ -44,12 +44,22 @@ class SiftWrapper(object):
 
     def create(self):
         """Create OpenCV SIFT detector."""
-        self.sift = cv2.xfeatures2d.SIFT_create(
-            0,
-            self.n_octave_layers, 
-            self.peak_thld, 
-            self.edge_thld, 
-            self.sigma)
+        opencv_major =  int(cv2.__version__.split('.')[0])
+        opencv_minor =  int(cv2.__version__.split('.')[1])
+        if opencv_major == 4 and opencv_minor >= 5: 
+            self.sift = cv2.SIFT_create(
+                0,
+                self.n_octave_layers, 
+                self.peak_thld, 
+                self.edge_thld, 
+                self.sigma)
+        else:
+            self.sift = cv2.xfeatures2d.SIFT_create(
+                0,
+                self.n_octave_layers, 
+                self.peak_thld, 
+                self.edge_thld, 
+                self.sigma)
 
     def detect(self, gray_img):
         """Detect keypoints in the gray-scale image.

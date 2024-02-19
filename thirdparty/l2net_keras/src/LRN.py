@@ -1,5 +1,6 @@
 from keras import backend as K
-from keras.layers.core import Layer
+# from keras.layers.core import Layer
+from keras.layers import Layer
 
 # from https://github.com/ckoren1975/Machine-learning/blob/master/googlenet_custom_layers.py
 # except channels have been moved from the 2nd position to the 4th postion
