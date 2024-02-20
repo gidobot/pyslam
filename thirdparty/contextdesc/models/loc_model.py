@@ -41,14 +41,14 @@ class LocModel(BaseModel):
         input_details = self.interpreter.get_input_details()[0]
         tensor_index = input_details['index']
         input_tensor = self.interpreter.tensor(tensor_index)()
-        # Inputs for the TFLite model must be uint8, so we quantize our input data.
+        # Inputs for the TFLite model must be int8, so we quantize our input data.
         # NOTE: This step is necessary only because we're receiving input data from
         # ImageDataGenerator, which rescaled all image data to float [0,1]. When using
         # bitmap inputs, they're already uint8 [0,255] so this can be replaced with:
-        input_tensor[:, :, :, :] = input
+        # input_tensor[:, :, :, :] = input
         # import pdb; pdb.set_trace()
-        # scale, zero_point = input_details['quantization']
-        # input_tensor[:, :, :, :] = np.int8(input / scale + zero_point)
+        scale, zero_point = input_details['quantization']
+        input_tensor[:, :, :, :] = np.int8(input / scale + zero_point)
         # input_tensor[:, :, :, :] = np.uint8(input / scale + zero_point)
 
     def _run_tflite(self, input):
@@ -62,8 +62,8 @@ class LocModel(BaseModel):
         output = self.interpreter.get_tensor(output_details['index'])
         output = np.squeeze(output)
         # Outputs from the TFLite model are int8, so we dequantize the results:
-        # scale, zero_point = output_details['quantization']
-        # output = scale * (output - zero_point)
+        scale, zero_point = output_details['quantization']
+        output = scale * (output - zero_point)
         # Only return outputs for the input batch size
         output = np.asarray(output[:batch_size], dtype=np.float32)
         return output
