@@ -30,24 +30,21 @@ import os
 import cv2
 import numpy as np
 
-if False:
-    import tensorflow as tf
-else: 
-    # from https://stackoverflow.com/questions/56820327/the-name-tf-session-is-deprecated-please-use-tf-compat-v1-session-instead
-    import tensorflow.compat.v1 as tf
-
+# if True:
+#     import tensorflow as tf
+# else: 
+#     # from https://stackoverflow.com/questions/56820327/the-name-tf-session-is-deprecated-please-use-tf-compat-v1-session-instead
+#     import tensorflow.compat.v1 as tf
 
 from contextdesc.utils.opencvhelper import MatcherWrapper
 
 #from contextdesc.models import get_model
 from contextdesc.models.loc_model import LocModel 
 
-from utils_tf import set_tf_logging
+# from utils_tf import set_tf_logging
 #from utils_sys import Printer
 
-
 kVerbose = True   
-
     
 # convert matrix of pts into list of keypoints
 def convert_pts_to_keypoints(pts, scores, sizes): 
@@ -58,20 +55,19 @@ def convert_pts_to_keypoints(pts, scores, sizes):
         kps = [ cv2.KeyPoint(p[0], p[1], _size=sizes[i], _response=scores[i]) for i,p in enumerate(pts) ]                      
     return kps         
 
-
 # interface for pySLAM 
 class ContextDescFeature2D: 
     quantize=False      #  Whether to quantize or not the output descriptor 
     def __init__(self,
                  num_features=2000,
                  n_sample=2048,              #  Maximum number of sampled keypoints per octave
-                 model_type='tflite',                  
+                 model_type='tpu',                  
                  do_tf_logging=False):  
         print('Using ContextDescFeature2D')   
         self.lock = RLock()
         self.model_base_path= config.cfg.root_folder + '/thirdparty/contextdesc/'
         
-        set_tf_logging(do_tf_logging)
+        # set_tf_logging(do_tf_logging)
         
         self.num_features = num_features
         self.n_sample = n_sample
@@ -79,6 +75,8 @@ class ContextDescFeature2D:
         self.quantize = ContextDescFeature2D.quantize
         
         self.loc_model_path = self.model_base_path + 'pretrained/contextdesc++'
+
+        self.grid_batch = True
             
         if self.model_type == 'pb':
             loc_model_path = os.path.join(self.loc_model_path, 'loc.pb')
@@ -89,6 +87,8 @@ class ContextDescFeature2D:
         elif self.model_type == 'tflite':
             # loc_model_path = os.path.join(self.loc_model_path, 'loc_quant.tflite')
             loc_model_path = os.path.join(self.loc_model_path, 'loc_quant_keras.tflite')
+        elif self.model_type == 'tpu':
+            loc_model_path = os.path.join(self.loc_model_path, 'loc_quant_keras_edgetpu.tflite')
         elif self.model_type == 'keras':
             # loc_model_path = os.path.join(self.loc_model_path, 'descnet.hdf5')
             # loc_model_path = os.path.join(self.loc_model_path, 'descnet_lite.hdf5')
@@ -117,6 +117,7 @@ class ContextDescFeature2D:
                                                     'peak_thld': 0.04,
                                                     'dense_desc': False,
                                                     'model_type': self.model_type,
+                                                    'grid_batch': self.grid_batch,
                                                     'upright': False})       
         print('==> Successfully loaded pre-trained network.')
             

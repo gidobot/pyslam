@@ -7,16 +7,12 @@ import os
 from struct import unpack
 import numpy as np
 import cv2
-import tensorflow as tf
 
 from .base_model import BaseModel
-from .cnn_wrapper.descnet import GeoDesc, DenseGeoDesc
-from .cnn_wrapper.augdesc import MatchabilityPrediction
 
 sys.path.append('..')
 
 from ..utils.opencvhelper import SiftWrapper
-from ..utils.spatial_transformer import transformer_crop
 
 
 class LocModel(BaseModel):
@@ -57,13 +53,38 @@ class LocModel(BaseModel):
             # append zeros to make the input batch size 2000
             input = np.concatenate((input, np.zeros((2000 - input.shape[0], input.shape[1], input.shape[2], input.shape[3]))), axis=0)
         self._set_input_tensor_tflite(input)
+        start = time.perf_counter()
         self.interpreter.invoke()
+        end = time.perf_counter()
+        print("Time to compute {} tflite descriptors: {}".format(batch_size, end - start))
         output_details = self.interpreter.get_output_details()[0]
         output = self.interpreter.get_tensor(output_details['index'])
         output = np.squeeze(output)
         # Outputs from the TFLite model are int8, so we dequantize the results:
         scale, zero_point = output_details['quantization']
         output = scale * (output - zero_point)
+        # Only return outputs for the input batch size
+        output = np.asarray(output[:batch_size], dtype=np.float32)
+        return output
+
+    def _run_tpu(self, input):
+        from pycoral.adapters import common
+        batch_size = input.shape[0]
+        input_details = self.interpreter.get_input_details()[0]
+        output_details = self.interpreter.get_output_details()[0]
+        scale, zero_point = input_details['quantization']
+        input_quant = np.int8(input / scale + zero_point)
+        output_quant = np.empty((batch_size, 128), dtype=np.int8)
+        for i in range(batch_size):
+            common.set_input(self.interpreter, input_quant[i])
+            start = time.perf_counter()
+            self.interpreter.invoke()
+            end = time.perf_counter()
+            print("Time to compute 1 tpu descriptor: {}ms".format((end - start)*1000))
+            output_quant[i] = common.output_tensor(self.interpreter, 0)[0,0,0,:]
+        # Outputs from the TFLite model are int8, so we dequantize the results:
+        scale, zero_point = output_details['quantization']
+        output = scale * (output_quant.astype(np.float32) - zero_point)
         # Only return outputs for the input batch size
         output = np.asarray(output[:batch_size], dtype=np.float32)
         return output
@@ -80,8 +101,19 @@ class LocModel(BaseModel):
                 patch_data = patch_queue.get()
                 if patch_data is None:
                     return
+                if self.config['grid_batch']:
+                    shape = patch_data.shape
+                    patch_grid = np.zeros((2*shape[0] - 1, 32,  32))
+                    idx = list(range(0, patch_grid.shape[0], 2))
+                    patch_grid[idx] = patch_data
+                    patch_data = np.reshape(patch_grid, (1, -1, 32))
+
                 if self.config['model_type'] == 'tflite':
                     loc_returns = self._run_tflite(np.expand_dims(patch_data, -1))
+                    loc_feat.append(loc_returns)
+                    kpt_mb.append(np.ones((loc_returns.shape[0], 1)))
+                if self.config['model_type'] == 'tpu':
+                    loc_returns = self._run_tpu(np.expand_dims(patch_data, -1))
                     loc_feat.append(loc_returns)
                     kpt_mb.append(np.ones((loc_returns.shape[0], 1)))
                 elif self.config['model_type'] == 'keras':
@@ -133,7 +165,6 @@ class LocModel(BaseModel):
             worker_thread.daemon = True
             worker_thread.start()
             # enqueue
-            start = time.perf_counter()
             for i in range(loop_num + 1):
                 if i < loop_num:
                     patch_queue.put(all_patches[i * batch_size: (i + 1) * batch_size])
@@ -146,8 +177,6 @@ class LocModel(BaseModel):
             loc_feat = np.concatenate(loc_feat, axis=0)
             kpt_mb = np.concatenate(kpt_mb, axis=0)
 
-            end = time.perf_counter()
-            print("Time to compute {} local descriptors: {}".format(loc_feat.shape[0], end - start))
         else:
             import cv2
             # compose affine crop matrix.
@@ -182,6 +211,11 @@ class LocModel(BaseModel):
 
     def _construct_network(self):
         """Model for patch description."""
+        import tensorflow as tf
+        from .cnn_wrapper.descnet import GeoDesc, DenseGeoDesc
+        from .cnn_wrapper.augdesc import MatchabilityPrediction
+        from ..utils.spatial_transformer import transformer_crop
+
 
         if self.config['dense_desc']:
             with tf.name_scope('input'):

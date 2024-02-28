@@ -9,12 +9,10 @@ import sys
 import os
 from abc import ABCMeta, abstractmethod
 import collections
-import tensorflow as tf
+# import tensorflow as tf
+# import tflite_runtime.interpreter as tflite
 
 sys.path.append('..')
-
-from ..utils.tf import load_frozen_model, recoverer
-
 
 def dict_update(d, u):
     """Improved update for nested dictionaries.
@@ -64,7 +62,20 @@ class BaseModel(metaclass=ABCMeta):
         if model_path is None:
             print("No pretrained model specified!")
             self.sess = None
+        elif 'edgetpu.tflite' in model_path:
+            from pycoral.utils.edgetpu import make_interpreter
+
+            self.sess = None
+            self.config['model_type'] = 'tpu'
+            # self.interpreter = tflite.Interpreter(self.model_path, experimental_delegates=[tflite.load_delegate('libedgetpu.so.1')])
+            # self.interpreter = tf.lite.Interpreter(self.model_path, experimental_delegates=[tf.lite.experimental.load_delegate('libedgetpu.so.1')])
+            self.interpreter = make_interpreter(self.model_path)
+            # self.interpreter.resize_tensor_input(0, [self.config['n_feature'], 32, 32, 1])
+            self.interpreter.allocate_tensors()
         else:
+            import tensorflow as tf
+            from ..utils.tf import load_frozen_model, recoverer
+
             ext = os.path.splitext(model_path)[1]
 
             sess_config = tf.compat.v1.ConfigProto()
