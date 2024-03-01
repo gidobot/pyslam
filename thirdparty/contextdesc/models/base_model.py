@@ -99,7 +99,7 @@ class BaseModel(metaclass=ABCMeta):
                 self.config['model_type'] = 'tflite'
                 # self.interpreter = tf.compat.v1.lite.Interpreter(self.model_path)
                 self.interpreter = tf.lite.Interpreter(self.model_path)
-                self.interpreter.resize_tensor_input(0, [self.config['n_feature'], 32, 32, 1])
+                # self.interpreter.resize_tensor_input(0, [self.config['n_feature'], 32, 32, 1])
                 self.interpreter.allocate_tensors()
             elif ext.find('.hdf5') == 0:
                 self.sess = None

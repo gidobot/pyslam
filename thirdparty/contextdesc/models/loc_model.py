@@ -49,9 +49,6 @@ class LocModel(BaseModel):
 
     def _run_tflite(self, input):
         batch_size = input.shape[0]
-        if batch_size < 2000:
-            # append zeros to make the input batch size 2000
-            input = np.concatenate((input, np.zeros((2000 - input.shape[0], input.shape[1], input.shape[2], input.shape[3]))), axis=0)
         self._set_input_tensor_tflite(input)
         start = time.perf_counter()
         self.interpreter.invoke()
@@ -62,31 +59,39 @@ class LocModel(BaseModel):
         output = np.squeeze(output)
         # Outputs from the TFLite model are int8, so we dequantize the results:
         scale, zero_point = output_details['quantization']
-        output = scale * (output - zero_point)
+        output = scale * (output.astype(np.float32) - zero_point)
         # Only return outputs for the input batch size
-        output = np.asarray(output[:batch_size], dtype=np.float32)
+        # output = np.asarray(output[:batch_size], dtype=np.float32)
+        # output = np.asarray(output, dtype=np.float32)
         return output
 
     def _run_tpu(self, input):
         from pycoral.adapters import common
-        batch_size = input.shape[0]
+        # batch_size = input.shape[0]
         input_details = self.interpreter.get_input_details()[0]
         output_details = self.interpreter.get_output_details()[0]
         scale, zero_point = input_details['quantization']
         input_quant = np.int8(input / scale + zero_point)
-        output_quant = np.empty((batch_size, 128), dtype=np.int8)
-        for i in range(batch_size):
-            common.set_input(self.interpreter, input_quant[i])
-            start = time.perf_counter()
-            self.interpreter.invoke()
-            end = time.perf_counter()
-            print("Time to compute 1 tpu descriptor: {}ms".format((end - start)*1000))
-            output_quant[i] = common.output_tensor(self.interpreter, 0)[0,0,0,:]
+        # output_quant = np.empty((batch_size, 128), dtype=np.int8)
+        common.set_input(self.interpreter, input_quant)
+        start = time.perf_counter()
+        self.interpreter.invoke()
+        end = time.perf_counter()
+        print("Time to compute 2000 tpu descriptors: {}ms".format((end - start)*1000))
+        output_quant = common.output_tensor(self.interpreter, 0)
+        output_quant = np.squeeze(output_quant)
+        # for i in range(batch_size):
+        #     common.set_input(self.interpreter, input_quant[i])
+        #     start = time.perf_counter()
+        #     self.interpreter.invoke()
+        #     end = time.perf_counter()
+        #     print("Time to compute 1 tpu descriptor: {}ms".format((end - start)*1000))
+        #     output_quant[i] = common.output_tensor(self.interpreter, 0)[0,0,0,:]
         # Outputs from the TFLite model are int8, so we dequantize the results:
         scale, zero_point = output_details['quantization']
         output = scale * (output_quant.astype(np.float32) - zero_point)
         # Only return outputs for the input batch size
-        output = np.asarray(output[:batch_size], dtype=np.float32)
+        # output = np.asarray(output[:batch_size], dtype=np.float32)
         return output
 
     def _run_keras(self, input):
@@ -101,6 +106,10 @@ class LocModel(BaseModel):
                 patch_data = patch_queue.get()
                 if patch_data is None:
                     return
+                batch_size = patch_data.shape[0]
+                if batch_size < 2000:
+                    # append zeros to make the input batch size 2000
+                    patch_data = np.concatenate((patch_data, np.zeros((2000 - patch_data.shape[0], patch_data.shape[1], patch_data.shape[2]))), axis=0)
                 if self.config['grid_batch']:
                     shape = patch_data.shape
                     patch_grid = np.zeros((2*shape[0] - 1, 32,  32))
@@ -110,14 +119,17 @@ class LocModel(BaseModel):
 
                 if self.config['model_type'] == 'tflite':
                     loc_returns = self._run_tflite(np.expand_dims(patch_data, -1))
+                    loc_returns = loc_returns[:batch_size]
                     loc_feat.append(loc_returns)
                     kpt_mb.append(np.ones((loc_returns.shape[0], 1)))
-                if self.config['model_type'] == 'tpu':
+                elif self.config['model_type'] == 'tpu':
                     loc_returns = self._run_tpu(np.expand_dims(patch_data, -1))
+                    loc_returns = loc_returns[:batch_size]
                     loc_feat.append(loc_returns)
                     kpt_mb.append(np.ones((loc_returns.shape[0], 1)))
                 elif self.config['model_type'] == 'keras':
                     loc_returns = self._run_keras(np.expand_dims(patch_data, -1))
+                    loc_returns = loc_returns[:batch_size]
                     loc_feat.append(loc_returns)
                     kpt_mb.append(np.ones((loc_returns.shape[0], 1)))
                 elif self.config['model_type'] == 'pbv2':
@@ -126,11 +138,13 @@ class LocModel(BaseModel):
                                            feed_dict={"input/net_input:0": np.expand_dims(patch_data, -1)})
                     # squeeze dimensions
                     loc_returns = np.squeeze(loc_returns[0])
+                    loc_returns = loc_returns[:batch_size]
                     loc_feat.append(loc_returns)
                     kpt_mb.append(np.ones((loc_returns.shape[0], 1)))
                 else:
                     loc_returns = sess.run(self.output_tensors,
                                            feed_dict={"input:0": np.expand_dims(patch_data, -1)})
+                    loc_returns = loc_returns[:,:batch_size,:]
                     loc_feat.append(loc_returns[0])
                     kpt_mb.append(loc_returns[1])
                 patch_queue.task_done()
