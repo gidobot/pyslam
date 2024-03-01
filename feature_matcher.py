@@ -68,8 +68,8 @@ class FeatureMatcher(object):
     def match(self, des1, des2, ratio_test=None):
         if kVerbose:
             print(self.matcher_name,', norm ', self.norm_type) 
-        #print('des1.shape:',des1.shape,' des2.shape:',des2.shape)    
-        #print('des1.dtype:',des1.dtype,' des2.dtype:',des2.dtype)                   
+        # print('des1.shape:',des1.shape,' des2.shape:',des2.shape)    
+        # print('des1.dtype:',des1.dtype,' des2.dtype:',des2.dtype)                   
         matches = self.matcher.knnMatch(des1, des2, k=2)  #knnMatch(queryDescriptors,trainDescriptors)
         self.matches = matches
         return self.goodMatches(matches, des1, des2, ratio_test)          

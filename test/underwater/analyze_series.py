@@ -14,14 +14,14 @@ TIME_EVAL = False
 # TRACKERS = ['ASLFEAT', 'R2D2', 'CONTEXTDESC++', 'CONTEXTDESC_CPP_CUDA', 'CUDA_CPP', 'SIFT_CPP']
 # TRACKERS = ['CONTEXTDESC_CPP_CUDA', 'CUDA_CPP']
 # TRACKERS = ['CONTEXTDESC++', 'CONTEXTDESCLOC', 'ROOT_SIFT']
-TRACKERS = ['CONTEXTDESCLOC']
+TRACKERS = ['CONTEXTDESCLOC', 'CONTEXTDESC++', 'ROOT_SIFT']
 # TRACKERS = ['SIFT', 'ROOT_SIFT', 'ORB', 'SUPERPOINT']
 # TRACKERS = ['SIFT', 'ROOT_SIFT', 'ORB', 'ORB2', 'AKAZE', 'SUPERPOINT', 'CONTEXTDESC']
 # TRACKERS = ['ROOT_SIFT', 'ROOT_SIFT_CLIPPED']
 # TRACKERS = ['ROOT_SIFT', 'CONTEXTDESC++']
 
-root_dir = "/mnt/d/UWslam_dataset/hybrid/Mounds1/"
-# root_dir = "/media/gidobot/data/UWslam_dataset/hybrid/Mounds1/"
+# root_dir = "/mnt/d/UWslam_dataset/hybrid/Mounds1/"
+root_dir = "/media/gidobot/data/UWslam_dataset/hybrid/Mounds1/"
 # root_dir = "/home/gidobot/workspace/data/UWslam_dataset/hybrid/Mounds2/"
 # root_dir = "/home/gidobot/workspace/data/UWslam_dataset/hybrid/Seeps1/"
 # root_dir = "/home/gidobot/workspace/data/UWslam_dataset/hybrid/Seeps2/"

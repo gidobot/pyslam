@@ -86,15 +86,18 @@ class ContextDescFeature2D:
             loc_model_path = os.path.join(self.loc_model_path, 'model.ckpt-400000')
         elif self.model_type == 'tflite':
             # loc_model_path = os.path.join(self.loc_model_path, 'loc_quant.tflite')
-            loc_model_path = os.path.join(self.loc_model_path, 'loc_quant_keras.tflite')
+            # loc_model_path = os.path.join(self.loc_model_path, 'loc_quant_keras.tflite')
+            loc_model_path = os.path.join(self.loc_model_path, 'loc_quant_keras_grid.tflite')
         elif self.model_type == 'tpu':
-            loc_model_path = os.path.join(self.loc_model_path, 'loc_quant_keras_edgetpu.tflite')
+            # loc_model_path = os.path.join(self.loc_model_path, 'loc_quant_keras_edgetpu.tflite')
+            loc_model_path = os.path.join(self.loc_model_path, 'loc_quant_keras_grid_edgetpu.tflite')
         elif self.model_type == 'keras':
             # loc_model_path = os.path.join(self.loc_model_path, 'descnet.hdf5')
             # loc_model_path = os.path.join(self.loc_model_path, 'descnet_lite.hdf5')
             # loc_model_path = os.path.join(self.loc_model_path, 'descnet_liter.hdf5')
             # loc_model_path = os.path.join(self.loc_model_path, 'descnet_litest.hdf5')
-            loc_model_path = os.path.join(self.loc_model_path, 'descnet_litest2.hdf5')
+            # loc_model_path = os.path.join(self.loc_model_path, 'descnet_litest2.hdf5')
+            loc_model_path = os.path.join(self.loc_model_path, 'descnet_litest_grid.hdf5')
             # loc_model_path = os.path.join(self.loc_model_path, 'descnet_litext.hdf5')
             # loc_model_path = os.path.join(self.loc_model_path, 'descnet_litext2.hdf5')
             print("Using model: {}".format(self.loc_model_path))
