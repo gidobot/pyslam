@@ -95,7 +95,10 @@ class LocModel(BaseModel):
         return output
 
     def _run_keras(self, input):
+        start = time.perf_counter()
         output = self.model.predict(input)
+        end = time.perf_counter()
+        print("Time to compute 2000 keras descriptors: {}ms".format((end - start)*1000))
         output = np.squeeze(output)
         return output
 
