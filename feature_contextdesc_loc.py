@@ -76,7 +76,7 @@ class ContextDescFeature2D:
         
         self.loc_model_path = self.model_base_path + 'pretrained/contextdesc++'
 
-        self.grid_batch = True
+        self.grid_batch = False
             
         if self.model_type == 'pb':
             loc_model_path = os.path.join(self.loc_model_path, 'loc.pb')
@@ -95,8 +95,8 @@ class ContextDescFeature2D:
             # loc_model_path = os.path.join(self.loc_model_path, 'descnet.hdf5')
             # loc_model_path = os.path.join(self.loc_model_path, 'descnet_lite.hdf5')
             # loc_model_path = os.path.join(self.loc_model_path, 'descnet_liter.hdf5')
-            # loc_model_path = os.path.join(self.loc_model_path, 'descnet_litest.hdf5')
-            loc_model_path = os.path.join(self.loc_model_path, 'descnet_litest_grid.hdf5')
+            loc_model_path = os.path.join(self.loc_model_path, 'descnet_litest.hdf5')
+            # loc_model_path = os.path.join(self.loc_model_path, 'descnet_litest_grid.hdf5')
             # loc_model_path = os.path.join(self.loc_model_path, 'descnet_litest2.hdf5')
             # loc_model_path = os.path.join(self.loc_model_path, 'descnet_litext.hdf5')
             # loc_model_path = os.path.join(self.loc_model_path, 'descnet_litext2.hdf5')

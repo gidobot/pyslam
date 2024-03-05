@@ -96,11 +96,26 @@ class LocModel(BaseModel):
 
     def _run_keras(self, input):
         start = time.perf_counter()
-        output = self.model.predict(input)
+        output = self.model(input)
         end = time.perf_counter()
         print("Time to compute 2000 keras descriptors: {}ms".format((end - start)*1000))
         output = np.squeeze(output)
         return output
+
+    def _run_trt(self, input):
+        input_buffer = np.ascontiguousarray(input.astype(np.float16))
+        start = time.perf_counter()
+        # Transfer input data to the GPU.
+        cuda.memcpy_htod_async(self.input_memory, input_buffer, self.stream)
+        # Run inference
+        context.execute_async_v2(bindings=self.bindings, stream_handle=self.stream.handle)
+        # Transfer prediction output from the GPU.
+        cuda.memcpy_dtoh_async(self.output_buffer, self.output_memory, self.stream)
+        # Synchronize the stream
+        stream.synchronize()
+        end = time.perf_counter()
+        print("Time to compute 2000 TensorRT descriptors: {}ms".format((end - start)*1000))
+        return self.output_buffer.astype(np.float32)
 
     def _run(self, data, **kwargs):
         def _worker(patch_queue, sess, loc_feat, kpt_mb):
@@ -122,6 +137,11 @@ class LocModel(BaseModel):
 
                 if self.config['model_type'] == 'tflite':
                     loc_returns = self._run_tflite(np.expand_dims(patch_data, -1))
+                    loc_returns = loc_returns[:batch_size]
+                    loc_feat.append(loc_returns)
+                    kpt_mb.append(np.ones((loc_returns.shape[0], 1)))
+                elif self.config['model_type'] == 'trt':
+                    loc_returns = self._run_trt(np.expand_dims(patch_data, -1))
                     loc_returns = loc_returns[:batch_size]
                     loc_feat.append(loc_returns)
                     kpt_mb.append(np.ones((loc_returns.shape[0], 1)))
