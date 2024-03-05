@@ -39,7 +39,8 @@ TRACKERS = ['CONTEXTDESCLOC']
 # TRACKERS = ['SURF']
 
 # root_dir = "/mnt/d/UWslam_dataset/hybrid/Mounds1/"
-root_dir = "/media/gidobot/data/UWslam_dataset/hybrid/Mounds1/"
+#root_dir = "/media/gidobot/data/UWslam_dataset/hybrid/Mounds1/"
+root_dir = "/mnt/remote/UWslam_dataset/hybrid/Mounds1/"
 # root_dir = "/home/gidobot/workspace/data/UWslam_dataset/hybrid/Mounds2/"
 # root_dir = "/home/gidobot/workspace/data/UWslam_dataset/hybrid/Seeps1/"
 # root_dir = "/home/gidobot/workspace/data/UWslam_dataset/hybrid/Seeps2/"
