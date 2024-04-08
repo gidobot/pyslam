@@ -91,7 +91,7 @@ class BaseModel(metaclass=ABCMeta):
             self.context.set_binding_shape(0, (self.config['n_feature'], 32, 32, 1))
             # Allocate host and device buffers
             self.bindings = []
-            dummy_input = np.zeros((2000,32,32,1), dtype=np.float16)
+            dummy_input = np.zeros((2000,32,32,1), dtype=np.float32)
             for binding in self.engine:
                binding_idx = self.engine.get_binding_index(binding)
                size = trt.volume(self.context.get_binding_shape(binding_idx))
@@ -106,15 +106,15 @@ class BaseModel(metaclass=ABCMeta):
             self.stream = cuda.Stream()
             self.cuda = cuda
             # test
-            import pdb; pdb.set_trace()
-            cuda.memcpy_htod_async(self.input_memory, dummy_input, self.stream)
-            # Run inference
-            self.context.execute_async_v2(bindings=self.bindings, stream_handle=self.stream.handle)
-            # Transfer prediction output from the GPU.
-            cuda.memcpy_dtoh_async(self.output_buffer, self.output_memory, self.stream)
-            # Synchronize the stream
-            self.stream.synchronize()
-            self.cuda_driver_context.pop()
+            # import pdb; pdb.set_trace()
+            # cuda.memcpy_htod_async(self.input_memory, dummy_input, self.stream)
+            # # Run inference
+            # self.context.execute_async_v2(bindings=self.bindings, stream_handle=self.stream.handle)
+            # # Transfer prediction output from the GPU.
+            # cuda.memcpy_dtoh_async(self.output_buffer, self.output_memory, self.stream)
+            # # Synchronize the stream
+            # self.stream.synchronize()
+            # self.cuda_driver_context.pop()
         elif 'edgetpu.tflite' in model_path:
             from pycoral.utils.edgetpu import make_interpreter
 

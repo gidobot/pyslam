@@ -126,7 +126,7 @@ class LocModel(BaseModel):
         return output
 
     def _run_trt(self, input):
-        input_buffer = np.ascontiguousarray(input.astype(np.float16))
+        input_buffer = np.ascontiguousarray(input.astype(np.float32))
         import pdb; pdb.set_trace()
         self.cuda_driver_context.push()
         start = time.perf_counter()
@@ -141,7 +141,8 @@ class LocModel(BaseModel):
         end = time.perf_counter()
         self.cuda_driver_context.pop()
         print("Time to compute 2000 TensorRT descriptors: {}ms".format((end - start)*1000))
-        return np.reshape(self.output_buffer.astype(np.float32), (-1, 128))
+        # return np.reshape(self.output_buffer.astype(np.float32), (-1, 128))
+        return np.reshape(self.output_buffer, (-1, 128))
 
     def _run(self, data, **kwargs):
         def _worker(patch_queue, sess, loc_feat, kpt_mb):
