@@ -71,6 +71,12 @@ class BaseModel(metaclass=ABCMeta):
             import tensorrt as trt
             import pycuda.driver as cuda
             # import pycuda.autoinit
+
+            cuda.init()
+            self.device = cuda.Device(0)
+            self.cuda_driver_context = self.device.make_context()
+            self.cuda_driver_context.push()
+
             TRT_LOGGER = trt.Logger()
 
             def load_engine(engine_file_path):
@@ -88,7 +94,6 @@ class BaseModel(metaclass=ABCMeta):
             # Allocate host and device buffers
             self.bindings = []
             dummy_input = np.zeros((2000,32,32,1), dtype=np.float16)
-            self.context.push()
             for binding in self.engine:
                binding_idx = self.engine.get_binding_index(binding)
                size = trt.volume(self.context.get_binding_shape(binding_idx))
@@ -111,7 +116,7 @@ class BaseModel(metaclass=ABCMeta):
             # cuda.memcpy_dtoh_async(self.output_buffer, self.output_memory, self.stream)
             # # Synchronize the stream
             # self.stream.synchronize()
-            self.context.pop()
+            self.cuda_driver_context.pop()
         elif 'edgetpu.tflite' in model_path:
             from pycoral.utils.edgetpu import make_interpreter
 
