@@ -93,6 +93,7 @@ class BaseModel(metaclass=ABCMeta):
             self.bindings = []
             dummy_input = np.zeros((2000,32,32,1), dtype=np.float16)
             for binding in self.engine:
+               import pdb; pdb.set_trace()
                binding_idx = self.engine.get_binding_index(binding)
                size = trt.volume(self.context.get_binding_shape(binding_idx))
                dtype = trt.nptype(self.engine.get_binding_dtype(binding))
@@ -106,7 +107,7 @@ class BaseModel(metaclass=ABCMeta):
             self.stream = cuda.Stream()
             self.cuda = cuda
             # test
-            import pdb; pdb.set_trace()
+            # import pdb; pdb.set_trace()
             # cuda.memcpy_htod_async(self.input_memory, dummy_input, self.stream)
             # # Run inference
             # self.context.execute_async_v2(bindings=self.bindings, stream_handle=self.stream.handle)
