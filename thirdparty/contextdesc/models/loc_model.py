@@ -127,7 +127,6 @@ class LocModel(BaseModel):
 
     def _run_trt(self, input):
         input_buffer = np.ascontiguousarray(input.astype(np.float32))
-        import pdb; pdb.set_trace()
         self.cuda_driver_context.push()
         start = time.perf_counter()
         # Transfer input data to the GPU.
