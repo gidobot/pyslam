@@ -55,8 +55,6 @@ class BaseModel(metaclass=ABCMeta):
         out_data = self._run(data, **kwargs)
         return out_data
 
-    
-
     def __init__(self, model_path, **config):
         self.model_path = model_path
         self.interpreter = None
@@ -116,7 +114,7 @@ class BaseModel(metaclass=ABCMeta):
             # cuda.memcpy_dtoh_async(self.output_buffer, self.output_memory, self.stream)
             # # Synchronize the stream
             # self.stream.synchronize()
-            self.cuda_driver_context.pop()
+            # self.cuda_driver_context.pop()
         elif 'edgetpu.tflite' in model_path:
             from pycoral.utils.edgetpu import make_interpreter
 
@@ -163,6 +161,9 @@ class BaseModel(metaclass=ABCMeta):
                 print("Unknown model type: {}".format(ext))
                 raise Exception("Unknown model type: {}".format(ext))
 
+    def __del__(self):
+        if '.engine' in self.model_path:
+            self.cuda_driver_context.pop()
 
     def close(self):
         if self.sess is not None:
