@@ -69,6 +69,8 @@ class BaseModel(metaclass=ABCMeta):
             self.sess = None
         elif '.engine' in model_path:
             import tensorrt as trt
+            import pycuda.driver as cuda
+            import pycuda.autoinit
             TRT_LOGGER = trt.Logger()
 
             def load_engine(engine_file_path):
@@ -83,21 +85,21 @@ class BaseModel(metaclass=ABCMeta):
             self.context = self.engine.create_execution_context()
             # Set input shape based on feature patches for inference
             self.context.set_binding_shape(0, (self.config['n_feature'], 32, 32, 1))
-            ## Allocate host and device buffers
-            #self.bindings = []
-            #dummy_input = np.zeros((2000,32,32,1), dtype=np.float16)
-            #for binding in self.engine:
-            #    binding_idx = self.engine.get_binding_index(binding)
-            #    size = trt.volume(self.context.get_binding_shape(binding_idx))
-            #    dtype = trt.nptype(self.engine.get_binding_dtype(binding))
-            #    if self.engine.binding_is_input(binding):
-            #        self.input_memory = cuda.mem_alloc(dummy_input.nbytes)
-            #        self.bindings.append(int(self.input_memory))
-            #    else:
-            #        self.output_buffer = cuda.pagelocked_empty(size, dtype)
-            #        self.output_memory = cuda.mem_alloc(self.output_buffer.nbytes)
-            #        self.bindings.append(int(self.output_memory))
-            #self.stream = cuda.Stream()
+            # Allocate host and device buffers
+            self.bindings = []
+            dummy_input = np.zeros((2000,32,32,1), dtype=np.float16)
+            for binding in self.engine:
+               binding_idx = self.engine.get_binding_index(binding)
+               size = trt.volume(self.context.get_binding_shape(binding_idx))
+               dtype = trt.nptype(self.engine.get_binding_dtype(binding))
+               if self.engine.binding_is_input(binding):
+                   self.input_memory = cuda.mem_alloc(dummy_input.nbytes)
+                   self.bindings.append(int(self.input_memory))
+               else:
+                   self.output_buffer = cuda.pagelocked_empty(size, dtype)
+                   self.output_memory = cuda.mem_alloc(self.output_buffer.nbytes)
+                   self.bindings.append(int(self.output_memory))
+            self.stream = cuda.Stream()
         elif 'edgetpu.tflite' in model_path:
             from pycoral.utils.edgetpu import make_interpreter
 

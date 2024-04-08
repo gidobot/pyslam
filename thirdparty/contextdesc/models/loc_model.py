@@ -8,9 +8,9 @@ from struct import unpack
 import numpy as np
 import cv2
 
-import pycuda.driver as cuda
-import pycuda.autoinit
-import tensorrt as trt
+# import pycuda.driver as cuda
+# import pycuda.autoinit
+# import tensorrt as trt
 
 from .base_model import BaseModel
 
@@ -27,22 +27,22 @@ class LocModel(BaseModel):
 
     def __init__(self, *args, **kwargs):
         super(LocModel,self).__init__(*args, **kwargs)
-        if self.config['model_type'] == 'trt':
-            # Allocate host and device buffers
-            self.bindings = []
-            dummy_input = np.zeros((2000,32,32,1), dtype=np.float16)
-            for binding in self.engine:
-                binding_idx = self.engine.get_binding_index(binding)
-                size = trt.volume(self.context.get_binding_shape(binding_idx))
-                dtype = trt.nptype(self.engine.get_binding_dtype(binding))
-                if self.engine.binding_is_input(binding):
-                    self.input_memory = cuda.mem_alloc(dummy_input.nbytes)
-                    self.bindings.append(int(self.input_memory))
-                else:
-                    self.output_buffer = cuda.pagelocked_empty(size, dtype)
-                    self.output_memory = cuda.mem_alloc(self.output_buffer.nbytes)
-                    self.bindings.append(int(self.output_memory))
-            self.stream = cuda.Stream()
+        # if self.config['model_type'] == 'trt':
+        #     # Allocate host and device buffers
+        #     self.bindings = []
+        #     dummy_input = np.zeros((2000,32,32,1), dtype=np.float16)
+        #     for binding in self.engine:
+        #         binding_idx = self.engine.get_binding_index(binding)
+        #         size = trt.volume(self.context.get_binding_shape(binding_idx))
+        #         dtype = trt.nptype(self.engine.get_binding_dtype(binding))
+        #         if self.engine.binding_is_input(binding):
+        #             self.input_memory = cuda.mem_alloc(dummy_input.nbytes)
+        #             self.bindings.append(int(self.input_memory))
+        #         else:
+        #             self.output_buffer = cuda.pagelocked_empty(size, dtype)
+        #             self.output_memory = cuda.mem_alloc(self.output_buffer.nbytes)
+        #             self.bindings.append(int(self.output_memory))
+        #     self.stream = cuda.Stream()
 
     def _init_model(self):
         self.sift_wrapper = SiftWrapper(
