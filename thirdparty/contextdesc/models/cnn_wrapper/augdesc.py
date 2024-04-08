@@ -75,8 +75,10 @@ class MatchabilityPrediction(Network):
     """Matchability prediction."""
 
     def setup(self):
+        patch_size = self.inputs['data'].get_shape()[1]
+        # patch_size = 1
         (self.feed('data')
-         .conv_bn(8, 128, 1, padding='VALID', name='kpt_m_conv0')
+         .conv_bn(patch_size, 128, 1, padding='VALID', name='kpt_m_conv0')
          .conv_bn(1, 32, 1, padding='VALID', name='kpt_m_conv1')
          .conv_bn(1, 32, 1, padding='VALID', name='kpt_m_conv2')
          .conv(1, 1, 1, biased=True, relu=False, padding='VALID', name='kpt_m')

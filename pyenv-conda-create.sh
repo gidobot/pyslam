@@ -9,11 +9,11 @@ if [[ -z "$ENV_NAME" ]]; then
 fi
 
 # check that conda is activated 
-if ! command -v conda &> /dev/null
-then
-    echo "conda could not be found! did you installed/activated conda?"
-    exit
-fi
+#if ! command -v conda &> /dev/null
+#then
+#    echo "conda could not be found! did you installed/activated conda?"
+#    exit
+#fi
 
 #conda create --name $ENV_NAME --file requirements-conda.txt -c conda-forge
 # or (easier)

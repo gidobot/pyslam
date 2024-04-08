@@ -26,16 +26,16 @@ from feature_tracker_configs import FeatureTrackerConfigs
 
 # TRACKERS = ['SIFT', 'ROOT_SIFT', 'ORB', 'SURF', 'AKAZE', 'CONTEXTDESC']
 # TRACKERS = ['SUPERPOINT']
-# TRACKERS = ['ORB']
+# TRACKERS = ['SIFT']
 # TRACKERS = ['AKAZE']
-# TRACKERS = ['CONTEXTDESC']
+TRACKERS = ['CONTEXTDESC', 'SIFT']
 # TRACKERS = ['R2D2']
-TRACKERS = ['ASLFEAT']
+# TRACKERS = ['ASLFEAT']
 # TRACKERS = ['ROOT_SIFT', 'SIFT', 'CONTEXTDESC']
 # TRACKERS = ['SURF_SIFT']
 # TRACKERS = ['SURF']
 
-root_dir = "/home/gidobot/workspace/data/UWslam_dataset/hybrid/Mounds1/"
+root_dir = "/media/gidobot/data/UWslam_dataset/hybrid/Mounds1/"
 # root_dir = "/home/gidobot/workspace/data/UWslam_dataset/hybrid/Mounds2/"
 # root_dir = "/home/gidobot/workspace/data/UWslam_dataset/hybrid/Seeps1/"
 # root_dir = "/home/gidobot/workspace/data/UWslam_dataset/hybrid/Seeps2/"
@@ -106,7 +106,7 @@ tracker_type = FeatureTrackerTypes.DES_BF      # descriptor-based, brute force m
 tracker_configs = [getattr(FeatureTrackerConfigs, t) for t in TRACKERS]
 for i, t in enumerate(tracker_configs):
     t['num_features'] = num_features
-    t['match_ratio_test'] = 0.8        # 0.7 is the default in feature_tracker_configs.py
+    t['match_ratio_test'] = 0.9        # 0.7 is the default in feature_tracker_configs.py
     t['tracker_type'] = tracker_type
     if TRACKERS[i] == 'CONTEXTDESC':
         t['match_ratio_test'] = 0.9        # 0.7 is the default in feature_tracker_configs.py

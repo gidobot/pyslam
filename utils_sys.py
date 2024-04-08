@@ -226,10 +226,11 @@ def import_from(module, name, method=None):
             return imported_name
         else:
             return getattr(imported_name, method) 
-    except: 
+    except Exception as e: 
         if method is not None: 
             name = name + '.' + method 
         Printer.orange('WARNING: cannot import ' + name + ' from ' + module + ', check the file TROUBLESHOOTING.md')    
+        print(e)
         return None   
     
     

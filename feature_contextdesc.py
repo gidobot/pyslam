@@ -30,11 +30,12 @@ import os
 import cv2
 import numpy as np
 
-if False:
+if True:
     import tensorflow as tf
 else: 
     # from https://stackoverflow.com/questions/56820327/the-name-tf-session-is-deprecated-please-use-tf-compat-v1-session-instead
     import tensorflow.compat.v1 as tf
+    tf.compat.v1.disable_eager_execution()    
 
 
 from contextdesc.utils.opencvhelper import MatcherWrapper
@@ -67,35 +68,46 @@ class ContextDescFeature2D:
     def __init__(self,
                  num_features=2000,
                  n_sample=2048,              #  Maximum number of sampled keypoints per octave
-                 dense_desc=False,           #  Whether to use dense descriptor model
+                 dense_desc=True,           #  Whether to use dense descriptor model
                  model_type='pb',                  
-                 do_tf_logging=False):  
+                 do_tf_logging=False,
+                 use_sift=True):  
         print('Using ContextDescFeature2D')   
         self.lock = RLock()
         self.model_base_path= config.cfg.root_folder + '/thirdparty/contextdesc/'
         
         set_tf_logging(do_tf_logging)
         
+        self.use_sift = use_sift
         self.num_features = num_features
         self.n_sample = n_sample
         self.model_type = model_type
         self.dense_desc = dense_desc
         self.quantize = ContextDescFeature2D.quantize
         
-        self.loc_model_path = self.model_base_path + 'pretrained/contextdesc++'
+        if not self.use_sift:
+            self.loc_model_path = self.model_base_path + 'pretrained/contextdesc++'
+        else:
+            self.loc_model_path = self.model_base_path + 'pretrained/sift-contextdesc'
         self.reg_model_path = self.model_base_path + 'pretrained/retrieval_model'
-            
+
+        ### TODO: combine loc and aug model to form from tfmatch
+        loc_model_path = None
         if self.model_type == 'pb':
             reg_model_path = os.path.join(self.reg_model_path, 'reg.pb')
-            loc_model_path = os.path.join(self.loc_model_path, 'loc.pb')
             aug_model_path = os.path.join(self.loc_model_path, 'aug.pb')
+            if not self.use_sift:
+                loc_model_path = os.path.join(self.loc_model_path, 'loc.pb')
         elif self.model_type == 'ckpt':
             reg_model_path = os.path.join(self.reg_model_path, 'model.ckpt-550000')
-            loc_model_path = os.path.join(self.loc_model_path, 'model.ckpt-400000')
-            aug_model_path = os.path.join(self.loc_model_path, 'model.ckpt-400000')
+            # loc_model_path = os.path.join(self.loc_model_path, 'model.ckpt-660000')
+            # aug_model_path = os.path.join(self.loc_model_path, 'model.ckpt-660000')
+            aug_model_path = os.path.join(self.loc_model_path, 'model.ckpt-800000')
+            if not self.use_sift:
+                loc_model_path = os.path.join(self.loc_model_path, 'model.ckpt-800000')
         else:
             raise NotImplementedError
-        
+
         self.keypoint_size = 10  # just a representative size for visualization and in order to convert extracted points to cv2.KeyPoint        
 
         self.pts = []
@@ -107,13 +119,13 @@ class ContextDescFeature2D:
         
         print('==> Loading pre-trained network.')
         self.ref_model = RegModel(reg_model_path) #get_model('reg_model')(reg_model_path)  #RegModel(reg_model_path)
-        self.loc_model = LocModel(loc_model_path, **{'sift_desc': False,             # compute or not SIFT descriptor (we do not need them here!)
+        self.loc_model = LocModel(loc_model_path, **{'sift_desc': self.use_sift,             # compute or not SIFT descriptor (we do not need them here!)
                                                     'n_feature': self.num_features,                                                     
                                                     'n_sample': self.n_sample,
                                                     'peak_thld': 0.04,
                                                     'dense_desc': self.dense_desc,
                                                     'upright': False})       
-        self.aug_model = AugModel(aug_model_path, **{'quantz': self.quantize})         
+        self.aug_model = AugModel(aug_model_path, **{'quantz': self.quantize, 'use_sift': self.use_sift, 'reg_feat_dim': 2048})         
         print('==> Successfully loaded pre-trained network.')
     
             
@@ -160,7 +172,10 @@ class ContextDescFeature2D:
             loc_feat, kpt_mb, normalized_xy, cv_kpts, sift_desc = self.loc_model.run_test_data(val)
             raw_kpts = [np.array((i.pt[0], i.pt[1], i.size, i.angle, i.response)) for i in cv_kpts]
             raw_kpts = np.stack(raw_kpts, axis=0)
-            loc_info = np.concatenate((raw_kpts, normalized_xy, loc_feat, kpt_mb), axis=-1)
+            if not self.use_sift:
+                loc_info = np.concatenate((raw_kpts, normalized_xy, loc_feat, kpt_mb), axis=-1)
+            else:
+                loc_info = np.concatenate((raw_kpts, normalized_xy, loc_feat), axis=-1)
             cv_kpts_list.append(cv_kpts)
             loc_info_list.append(loc_info)
             sift_feat_list.append(sift_desc)
@@ -190,6 +205,7 @@ class ContextDescFeature2D:
             cv_kpts_list, loc_info_list, loc_feat_list, sift_feat_list = self.extract_local_features(gray_list)
             # extract augmented features.
             aug_feat_list = self.extract_augmented_features(reg_feat_list,loc_info_list)        
+            # aug_feat_list = loc_feat_list
             
             self.kps = cv_kpts_list[0]
             self.des = aug_feat_list[0]

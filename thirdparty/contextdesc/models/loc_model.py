@@ -24,14 +24,15 @@ class LocModel(BaseModel):
     output_tensors = ["conv6_feat:0", "kpt_mb:0"]
     default_config = {'n_feature': 0, "n_sample": 0,
                       'batch_size': 512, 'sift_wrapper': None, 'upright': False, 'scale_diff': False,
-                      'dense_desc': False, 'sift_desc': False, 'peak_thld': 0.0067, 'edge_thld': 10, 'max_dim': 1280}
+                      'dense_desc': True, 'sift_desc': True, 'peak_thld': 0.04, 'edge_thld': 10, 'max_dim': 1280}
 
     def _init_model(self):
         self.sift_wrapper = SiftWrapper(
             n_feature=self.config['n_feature'],
             n_sample=self.config['n_sample'],
             peak_thld=self.config['peak_thld'],
-            edge_thld=self.config['edge_thld']
+            edge_thld=self.config['edge_thld'],
+            rootsift=False
             )
         self.sift_wrapper.standardize = False  # the network has handled this step.
         self.sift_wrapper.ori_off = self.config['upright']
@@ -64,7 +65,11 @@ class LocModel(BaseModel):
 
         num_patch = len(cv_kpts)
 
-        if not self.config['dense_desc']:
+        if self.config['sift_desc']:
+            # kpt_mb = self.sess.run(["kpt_mb:0"], feed_dict={"input_1:0": np.reshape(sift_desc, (-1,1,1,128))})[0]
+            kpt_mb = []
+            loc_feat = sift_desc
+        elif not self.config['dense_desc']:
             self.sift_wrapper.build_pyramid(gray_img)
             all_patches = self.sift_wrapper.get_patches(cv_kpts)
             # get iteration number
@@ -128,37 +133,46 @@ class LocModel(BaseModel):
     def _construct_network(self):
         """Model for patch description."""
 
-        if self.config['dense_desc']:
-            with tf.name_scope('input'):
-                ph_imgs = tf.placeholder(dtype=tf.float32, shape=(
-                    None, None, None, 1), name='img')
-                ph_kpt_params = tf.placeholder(tf.float32, shape=(None, None, 6), name='kpt_param')
-            kpt_xy = tf.concat((ph_kpt_params[:, :, 2, None], ph_kpt_params[:, :, 5, None]), axis=-1)
-            kpt_theta = tf.reshape(ph_kpt_params, (tf.shape(ph_kpt_params)[0], tf.shape(ph_kpt_params)[1], 2, 3))
-            mean, variance = tf.nn.moments(
-                tf.cast(ph_imgs, tf.float32), axes=[1, 2], keep_dims=True)
-            norm_input = tf.nn.batch_normalization(ph_imgs, mean, variance, None, None, 1e-5)
-            config_dict = {}
-            config_dict['pert_theta'] = kpt_theta
-            config_dict['patch_sampler'] = transformer_crop
-            tower = DenseGeoDesc({'data': norm_input, 'kpt_coord': kpt_xy},
-                          is_training=False, resue=False, **config_dict)
+        if self.config['sift_desc']:
+            feat = tf.placeholder(dtype=tf.float32, shape=(None, 1, 1, 128), name='input')
+            # feat = tf.reshape(
+                # feat, [feat.get_shape()[0], 1, 1, feat.get_shape()[-1]])
+            with tf.compat.v1.variable_scope('kpt_m'):
+                matchability_tower = MatchabilityPrediction({'data': feat}, is_training=False, reuse=False)
+                mb = matchability_tower.get_output()
+            mb = tf.squeeze(mb, axis=[1, 2], name='kpt_mb')
         else:
-            input_size = (32, 32)
-            patches = tf.placeholder(
-                dtype=tf.float32, shape=(None, input_size[0], input_size[1], 1), name='input')
-            # patch standardization
-            mean, variance = tf.nn.moments(
-                tf.cast(patches, tf.float32), axes=[1, 2], keep_dims=True)
-            patches = tf.nn.batch_normalization(patches, mean, variance, None, None, 1e-5)
-            tower = GeoDesc({'data': patches}, is_training=False, reuse=False)
+            if self.config['dense_desc']:
+                with tf.name_scope('input'):
+                    ph_imgs = tf.placeholder(dtype=tf.float32, shape=(
+                        None, None, None, 1), name='img')
+                    ph_kpt_params = tf.placeholder(tf.float32, shape=(None, None, 6), name='kpt_param')
+                kpt_xy = tf.concat((ph_kpt_params[:, :, 2, None], ph_kpt_params[:, :, 5, None]), axis=-1)
+                kpt_theta = tf.reshape(ph_kpt_params, (tf.shape(ph_kpt_params)[0], tf.shape(ph_kpt_params)[1], 2, 3))
+                mean, variance = tf.nn.moments(
+                    tf.cast(ph_imgs, tf.float32), axes=[1, 2], keep_dims=True)
+                norm_input = tf.nn.batch_normalization(ph_imgs, mean, variance, None, None, 1e-5)
+                config_dict = {}
+                config_dict['pert_theta'] = kpt_theta
+                config_dict['patch_sampler'] = transformer_crop
+                tower = DenseGeoDesc({'data': norm_input, 'kpt_coord': kpt_xy},
+                              is_training=False, resue=False, **config_dict)
+            else:
+                input_size = (32, 32)
+                patches = tf.placeholder(
+                    dtype=tf.float32, shape=(None, input_size[0], input_size[1], 1), name='input')
+                # patch standardization
+                mean, variance = tf.nn.moments(
+                    tf.cast(patches, tf.float32), axes=[1, 2], keep_dims=True)
+                patches = tf.nn.batch_normalization(patches, mean, variance, None, None, 1e-5)
+                tower = GeoDesc({'data': patches}, is_training=False, reuse=False)
 
-        conv6_feat = tower.get_output_by_name('conv6')
-        conv6_feat = tf.squeeze(conv6_feat, axis=[1, 2], name='conv6_feat')
+            conv6_feat = tower.get_output_by_name('conv6')
+            conv6_feat = tf.squeeze(conv6_feat, axis=[1, 2], name='conv6_feat')
 
-        with tf.compat.v1.variable_scope('kpt_m'):
-            inter_feat = tower.get_output_by_name('conv5')
-            matchability_tower = MatchabilityPrediction(
-                {'data': inter_feat}, is_training=False, reuse=False)
-            mb = matchability_tower.get_output()
-        mb = tf.squeeze(mb, axis=[1, 2], name='kpt_mb')
+            with tf.compat.v1.variable_scope('kpt_m'):
+                inter_feat = tower.get_output_by_name('conv5')
+                matchability_tower = MatchabilityPrediction(
+                    {'data': inter_feat}, is_training=False, reuse=False)
+                mb = matchability_tower.get_output()
+            mb = tf.squeeze(mb, axis=[1, 2], name='kpt_mb')

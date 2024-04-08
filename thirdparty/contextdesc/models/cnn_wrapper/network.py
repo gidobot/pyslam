@@ -192,7 +192,8 @@ class Network(object):
              reuse=False,
              kernel_init=None,
              bias_init=tf.zeros_initializer,
-             separable=False):
+             separable=False,
+             data_format='channels_last'):
         """2D/3D convolution."""
         kwargs = {'filters': filters,
                   'kernel_size': kernel_size,
@@ -205,7 +206,8 @@ class Network(object):
                   'bias_regularizer': self.regularizer if biased else None,
                   'kernel_initializer': kernel_init,
                   'bias_initializer': bias_init,
-                  'name': name}
+                  'name': name,
+                  'data_format': data_format}
 
         if separable:
             kwargs['depthwise_regularizer'] = self.regularizer

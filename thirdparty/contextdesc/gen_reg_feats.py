@@ -55,8 +55,8 @@ def main(argv=None):  # pylint: disable=unused-argument
             name = os.path.splitext(os.path.basename(img_path))[0]
             save_path = os.path.join(d, 'reg_feat', name+'.bin')
             print('Processing image {} of {}, in folder {} of {}: {}'.format(i, len(img_list), n, len(data_dirs), save_path))
-            if os.path.exists(save_path):
-                continue
+            # if os.path.exists(save_path):
+                # continue
             rgb = load_img(img_path)
             reg_feat = reg_model.run_test_data(rgb)
             reg_feat.astype(np.float32).tofile(save_path)
