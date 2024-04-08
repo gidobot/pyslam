@@ -88,6 +88,7 @@ class BaseModel(metaclass=ABCMeta):
             # Allocate host and device buffers
             self.bindings = []
             dummy_input = np.zeros((2000,32,32,1), dtype=np.float16)
+            self.context.push()
             for binding in self.engine:
                binding_idx = self.engine.get_binding_index(binding)
                size = trt.volume(self.context.get_binding_shape(binding_idx))
@@ -110,6 +111,7 @@ class BaseModel(metaclass=ABCMeta):
             # cuda.memcpy_dtoh_async(self.output_buffer, self.output_memory, self.stream)
             # # Synchronize the stream
             # self.stream.synchronize()
+            self.context.pop()
         elif 'edgetpu.tflite' in model_path:
             from pycoral.utils.edgetpu import make_interpreter
 
