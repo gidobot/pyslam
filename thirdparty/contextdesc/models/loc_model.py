@@ -141,7 +141,7 @@ class LocModel(BaseModel):
         self.cuda_driver_context.pop()
         import pdb; pdb.set_trace()
         print("Time to compute 2000 TensorRT descriptors: {}ms".format((end - start)*1000))
-        return self.output_buffer.astype(np.float32)
+        return np.reshape(self.output_buffer.astype(np.float32), (-1, 128))
 
     def _run(self, data, **kwargs):
         def _worker(patch_queue, sess, loc_feat, kpt_mb):
