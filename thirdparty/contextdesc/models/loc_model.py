@@ -127,6 +127,7 @@ class LocModel(BaseModel):
 
     def _run_trt(self, input):
         input_buffer = np.ascontiguousarray(input.astype(np.float16))
+        import pdb; pdb.set_trace()
         self.cuda_driver_context.push()
         start = time.perf_counter()
         # Transfer input data to the GPU.
@@ -139,7 +140,6 @@ class LocModel(BaseModel):
         self.stream.synchronize()
         end = time.perf_counter()
         self.cuda_driver_context.pop()
-        import pdb; pdb.set_trace()
         print("Time to compute 2000 TensorRT descriptors: {}ms".format((end - start)*1000))
         return np.reshape(self.output_buffer.astype(np.float32), (-1, 128))
 
