@@ -8,6 +8,10 @@ from struct import unpack
 import numpy as np
 import cv2
 
+import pycuda.driver as cuda
+import pycuda.autoinit
+import tensorrt as trt
+
 from .base_model import BaseModel
 
 sys.path.append('..')
@@ -21,6 +25,25 @@ class LocModel(BaseModel):
                       'batch_size': 2000, 'sift_wrapper': None, 'upright': False, 'scale_diff': False,
                       'dense_desc': False, 'sift_desc': False, 'peak_thld': 0.0067, 'edge_thld': 10, 'max_dim': 1280}
 
+    def __init__(self, *args, **kwargs):
+        super(LocModel,self).__init__(*args, **kwargs)
+        if self.config['model_type'] == 'trt':
+            # Allocate host and device buffers
+            self.bindings = []
+            dummy_input = np.zeros((2000,32,32,1), dtype=np.float16)
+            for binding in self.engine:
+                binding_idx = self.engine.get_binding_index(binding)
+                size = trt.volume(self.context.get_binding_shape(binding_idx))
+                dtype = trt.nptype(self.engine.get_binding_dtype(binding))
+                if self.engine.binding_is_input(binding):
+                    self.input_memory = cuda.mem_alloc(dummy_input.nbytes)
+                    self.bindings.append(int(self.input_memory))
+                else:
+                    self.output_buffer = cuda.pagelocked_empty(size, dtype)
+                    self.output_memory = cuda.mem_alloc(self.output_buffer.nbytes)
+                    self.bindings.append(int(self.output_memory))
+            self.stream = cuda.Stream()
+
     def _init_model(self):
         self.sift_wrapper = SiftWrapper(
             n_feature=self.config['n_feature'],
@@ -32,7 +55,7 @@ class LocModel(BaseModel):
         self.sift_wrapper.ori_off = self.config['upright']
         self.sift_wrapper.pyr_off = not self.config['scale_diff']
         self.sift_wrapper.create()
-
+        
     def _set_input_tensor_tflite(self, input):
         input_details = self.interpreter.get_input_details()[0]
         tensor_index = input_details['index']
@@ -104,15 +127,16 @@ class LocModel(BaseModel):
 
     def _run_trt(self, input):
         input_buffer = np.ascontiguousarray(input.astype(np.float16))
+        import pdb; pdb.set_trace()
         start = time.perf_counter()
         # Transfer input data to the GPU.
         cuda.memcpy_htod_async(self.input_memory, input_buffer, self.stream)
         # Run inference
-        context.execute_async_v2(bindings=self.bindings, stream_handle=self.stream.handle)
+        self.context.execute_async_v2(bindings=self.bindings, stream_handle=self.stream.handle)
         # Transfer prediction output from the GPU.
         cuda.memcpy_dtoh_async(self.output_buffer, self.output_memory, self.stream)
         # Synchronize the stream
-        stream.synchronize()
+        self.stream.synchronize()
         end = time.perf_counter()
         print("Time to compute 2000 TensorRT descriptors: {}ms".format((end - start)*1000))
         return self.output_buffer.astype(np.float32)

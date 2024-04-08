@@ -9,8 +9,11 @@ import sys
 import os
 from abc import ABCMeta, abstractmethod
 import collections
+import numpy as np
 # import tensorflow as tf
 # import tflite_runtime.interpreter as tflite
+#import pycuda.driver as cuda
+#import pycuda.autoinit
 
 sys.path.append('..')
 
@@ -65,10 +68,7 @@ class BaseModel(metaclass=ABCMeta):
             print("No pretrained model specified!")
             self.sess = None
         elif '.engine' in model_path:
-            import pycuda.driver as cuda
-            import pycuda.autoinit
             import tensorrt as trt
-
             TRT_LOGGER = trt.Logger()
 
             def load_engine(engine_file_path):
@@ -76,7 +76,6 @@ class BaseModel(metaclass=ABCMeta):
                 print("Reading engine from file {}".format(engine_file_path))
                 with open(engine_file_path, "rb") as f, trt.Runtime(TRT_LOGGER) as runtime:
                     return runtime.deserialize_cuda_engine(f.read()) 
-
             self.sess = None
             self.interpreter = None
             self.config['model_type'] = 'trt'
@@ -84,22 +83,21 @@ class BaseModel(metaclass=ABCMeta):
             self.context = self.engine.create_execution_context()
             # Set input shape based on feature patches for inference
             self.context.set_binding_shape(0, (self.config['n_feature'], 32, 32, 1))
-            # Allocate host and device buffers
-            self.bindings = []
-            dummy_input = np.zeros(2000,32,32,1, dtype=np.float16)
-            for binding in self.engine:
-                binding_idx = self.engine.get_binding_index(binding)
-                size = trt.volume(self.context.get_binding_shape(binding_idx))
-                dtype = trt.nptype(self.engine.get_binding_dtype(binding))
-                if self.engine.binding_is_input(binding):
-                    self.input_buffer = np.ascontiguousarray(dummy_input)
-                    self.input_memory = cuda.mem_alloc(dummy_input.nbytes)
-                    self.bindings.append(int(self.input_memory))
-                else:
-                    self.output_buffer = cuda.pagelocked_empty(size, dtype)
-                    self.output_memory = cuda.mem_alloc(output_buffer.nbytes)
-                    self.bindings.append(int(output_memory))
-            self.stream = cuda.Stream()
+            ## Allocate host and device buffers
+            #self.bindings = []
+            #dummy_input = np.zeros((2000,32,32,1), dtype=np.float16)
+            #for binding in self.engine:
+            #    binding_idx = self.engine.get_binding_index(binding)
+            #    size = trt.volume(self.context.get_binding_shape(binding_idx))
+            #    dtype = trt.nptype(self.engine.get_binding_dtype(binding))
+            #    if self.engine.binding_is_input(binding):
+            #        self.input_memory = cuda.mem_alloc(dummy_input.nbytes)
+            #        self.bindings.append(int(self.input_memory))
+            #    else:
+            #        self.output_buffer = cuda.pagelocked_empty(size, dtype)
+            #        self.output_memory = cuda.mem_alloc(self.output_buffer.nbytes)
+            #        self.bindings.append(int(self.output_memory))
+            #self.stream = cuda.Stream()
         elif 'edgetpu.tflite' in model_path:
             from pycoral.utils.edgetpu import make_interpreter
 
