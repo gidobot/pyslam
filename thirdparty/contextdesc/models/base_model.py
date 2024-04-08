@@ -70,7 +70,7 @@ class BaseModel(metaclass=ABCMeta):
         elif '.engine' in model_path:
             import tensorrt as trt
             import pycuda.driver as cuda
-            import pycuda.autoinit
+            # import pycuda.autoinit
             TRT_LOGGER = trt.Logger()
 
             def load_engine(engine_file_path):
