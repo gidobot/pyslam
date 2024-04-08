@@ -8,7 +8,7 @@ from struct import unpack
 import numpy as np
 import cv2
 
-# import pycuda.driver as cuda
+import pycuda.driver as cuda
 # import pycuda.autoinit
 # import tensorrt as trt
 

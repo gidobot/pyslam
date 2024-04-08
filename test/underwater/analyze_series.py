@@ -14,11 +14,11 @@ TIME_EVAL = False
 # TRACKERS = ['ASLFEAT', 'R2D2', 'CONTEXTDESC++', 'CONTEXTDESC_CPP_CUDA', 'CUDA_CPP', 'SIFT_CPP']
 # TRACKERS = ['CONTEXTDESC_CPP_CUDA', 'CUDA_CPP']
 # TRACKERS = ['CONTEXTDESC++', 'CONTEXTDESCLOC', 'ROOT_SIFT']
-TRACKERS = ['CONTEXTDESCLOC', 'CONTEXTDESC++', 'ROOT_SIFT']
+# TRACKERS = ['CONTEXTDESCLOC', 'CONTEXTDESC++', 'ROOT_SIFT']
 # TRACKERS = ['SIFT', 'ROOT_SIFT', 'ORB', 'SUPERPOINT']
 # TRACKERS = ['SIFT', 'ROOT_SIFT', 'ORB', 'ORB2', 'AKAZE', 'SUPERPOINT', 'CONTEXTDESC']
 # TRACKERS = ['ROOT_SIFT', 'ROOT_SIFT_CLIPPED']
-# TRACKERS = ['ROOT_SIFT', 'CONTEXTDESC++']
+TRACKERS = ['ROOT_SIFT', 'CONTEXTDESC++']
 
 # root_dir = "/mnt/d/UWslam_dataset/hybrid/Mounds1/"
 root_dir = "/media/gidobot/data/UWslam_dataset/hybrid/Mounds1/"
@@ -223,7 +223,8 @@ for i in range(len(TRACKERS)):
 ax1.set_title('Translation Direction')
 ax1.set_xlabel('Angle Error (deg)')
 ax1.set_ylabel('Percentage')
-ax1.legend(TRACKERS)
+# ax1.legend(TRACKERS)
+ax1.legend(['ROOT_SIFT', 'LEARNED'])
 ax2.set_title('Orientation')
 ax2.set_xlabel('Angle Error (deg)')
 ax2.set_ylabel('Percentage')
