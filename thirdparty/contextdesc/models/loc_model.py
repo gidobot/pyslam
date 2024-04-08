@@ -8,7 +8,7 @@ from struct import unpack
 import numpy as np
 import cv2
 
-import pycuda.driver as cuda
+# import pycuda.driver as cuda
 # import pycuda.autoinit
 # import tensorrt as trt
 
@@ -130,11 +130,11 @@ class LocModel(BaseModel):
         import pdb; pdb.set_trace()
         start = time.perf_counter()
         # Transfer input data to the GPU.
-        cuda.memcpy_htod_async(self.input_memory, input_buffer, self.stream)
+        self.cuda.memcpy_htod_async(self.input_memory, input_buffer, self.stream)
         # Run inference
         self.context.execute_async_v2(bindings=self.bindings, stream_handle=self.stream.handle)
         # Transfer prediction output from the GPU.
-        cuda.memcpy_dtoh_async(self.output_buffer, self.output_memory, self.stream)
+        self.cuda.memcpy_dtoh_async(self.output_buffer, self.output_memory, self.stream)
         # Synchronize the stream
         self.stream.synchronize()
         end = time.perf_counter()
