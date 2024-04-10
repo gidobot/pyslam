@@ -27,8 +27,8 @@ class LocModel(BaseModel):
 
     def __init__(self, *args, **kwargs):
         super(LocModel,self).__init__(*args, **kwargs)
-        if self.config['model_type'] == 'trt':
-           self.cuda_driver_context.push()
+        # if self.config['model_type'] == 'trt':
+           # self.cuda_driver_context.push()
         #     # Allocate host and device buffers
         #     self.bindings = []
         #     dummy_input = np.zeros((2000,32,32,1), dtype=np.float16)
@@ -45,9 +45,9 @@ class LocModel(BaseModel):
         #             self.bindings.append(int(self.output_memory))
         #     self.stream = cuda.Stream()
 
-    def __del__(self):
-        if self.config['model_type'] == 'trt':
-           self.cuda_driver_context.pop()
+    # def __del__(self):
+        # if self.config['model_type'] == 'trt':
+           # self.cuda_driver_context.pop()
 
     def _init_model(self):
         self.sift_wrapper = SiftWrapper(

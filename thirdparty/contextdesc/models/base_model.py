@@ -68,12 +68,12 @@ class BaseModel(metaclass=ABCMeta):
         elif '.engine' in model_path:
             import tensorrt as trt
             import pycuda.driver as cuda
-            # import pycuda.autoinit
+            import pycuda.autoinit
 
-            cuda.init()
-            self.device = cuda.Device(0)
-            self.cuda_driver_context = self.device.make_context()
-            self.cuda_driver_context.push()
+            # cuda.init()
+            # self.device = cuda.Device(0)
+            # self.cuda_driver_context = self.device.make_context()
+            # self.cuda_driver_context.push()
 
             TRT_LOGGER = trt.Logger()
 
