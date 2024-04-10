@@ -27,8 +27,8 @@ class LocModel(BaseModel):
 
     def __init__(self, *args, **kwargs):
         super(LocModel,self).__init__(*args, **kwargs)
-        if self.config['model_type'] == 'trt':
-            self.cuda_driver_context.push()
+        #if self.config['model_type'] == 'trt':
+        #    self.cuda_driver_context.push()
         #     # Allocate host and device buffers
         #     self.bindings = []
         #     dummy_input = np.zeros((2000,32,32,1), dtype=np.float16)
@@ -45,9 +45,9 @@ class LocModel(BaseModel):
         #             self.bindings.append(int(self.output_memory))
         #     self.stream = cuda.Stream()
 
-    def __del__(self):
-        if self.config['model_type'] == 'trt':
-            self.cuda_driver_context.pop()
+    #def __del__(self):
+        #if self.config['model_type'] == 'trt':
+        #    self.cuda_driver_context.pop()
 
     def _init_model(self):
         self.sift_wrapper = SiftWrapper(
@@ -132,7 +132,7 @@ class LocModel(BaseModel):
 
     def _run_trt(self, input):
         input_buffer = np.ascontiguousarray(input.astype(np.float32))
-        # self.cuda_driver_context.push()
+        self.cuda_driver_context.push()
         start = time.perf_counter()
         # Transfer input data to the GPU.
         self.cuda.memcpy_htod_async(self.input_memory, input_buffer, self.stream)
@@ -143,9 +143,10 @@ class LocModel(BaseModel):
         # Synchronize the stream
         self.stream.synchronize()
         end = time.perf_counter()
-        # self.cuda_driver_context.pop()
+        self.cuda_driver_context.pop()
         print("Time to compute 2000 TensorRT descriptors: {}ms".format((end - start)*1000))
         # return np.reshape(self.output_buffer.astype(np.float32), (-1, 128))
+        #import pdb; pdb.set_trace()
         return np.reshape(self.output_buffer, (-1, 128))
 
     def _run(self, data, **kwargs):
