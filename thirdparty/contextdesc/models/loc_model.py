@@ -27,8 +27,8 @@ class LocModel(BaseModel):
 
     def __init__(self, *args, **kwargs):
         super(LocModel,self).__init__(*args, **kwargs)
-        #if self.config['model_type'] == 'trt':
-        #    self.cuda_driver_context.push()
+        if self.config['model_type'] == 'trt':
+           self.cuda_driver_context.push()
         #     # Allocate host and device buffers
         #     self.bindings = []
         #     dummy_input = np.zeros((2000,32,32,1), dtype=np.float16)
@@ -45,9 +45,9 @@ class LocModel(BaseModel):
         #             self.bindings.append(int(self.output_memory))
         #     self.stream = cuda.Stream()
 
-    #def __del__(self):
-        #if self.config['model_type'] == 'trt':
-        #    self.cuda_driver_context.pop()
+    def __del__(self):
+        if self.config['model_type'] == 'trt':
+           self.cuda_driver_context.pop()
 
     def _init_model(self):
         self.sift_wrapper = SiftWrapper(
@@ -132,27 +132,74 @@ class LocModel(BaseModel):
 
     def _run_trt(self, input):
         input_buffer = np.ascontiguousarray(input.astype(np.float32))
-        self.cuda_driver_context.push()
-        # start = time.perf_counter()
-        for i in range(100):
-            if i == 20:
-                start = time.perf_counter()
-            # Transfer input data to the GPU.
-            self.cuda.memcpy_htod_async(self.input_memory, input_buffer, self.stream)
-            # Run inference
-            self.context.execute_async_v2(bindings=self.bindings, stream_handle=self.stream.handle)
-            # Transfer prediction output from the GPU.
-            self.cuda.memcpy_dtoh_async(self.output_buffer, self.output_memory, self.stream)
-            # Synchronize the stream
-            self.stream.synchronize()
+        # self.cuda_driver_context.push()
+        start = time.perf_counter()
+        # Transfer input data to the GPU.
+        self.cuda.memcpy_htod_async(self.input_memory, input_buffer, self.stream)
+        # Run inference
+        self.context.execute_async_v2(bindings=self.bindings, stream_handle=self.stream.handle)
+        # Transfer prediction output from the GPU.
+        self.cuda.memcpy_dtoh_async(self.output_buffer, self.output_memory, self.stream)
+        # Synchronize the stream
+        self.stream.synchronize()
         end = time.perf_counter()
-        self.cuda_driver_context.pop()
-        print("Time to compute 2000 TensorRT descriptors: {}ms".format((end - start)*1000/80))
+        # self.cuda_driver_context.pop()
+        print("Time to compute 2000 TensorRT descriptors: {}ms".format((end - start)*1000))
         # return np.reshape(self.output_buffer.astype(np.float32), (-1, 128))
         #import pdb; pdb.set_trace()
         return np.reshape(self.output_buffer, (-1, 128))
 
     def _run(self, data, **kwargs):
+        def _run_local(patch_data, sess):
+            if patch_data is None:
+                return
+            batch_size = patch_data.shape[0]
+            if batch_size < 2000:
+                # append zeros to make the input batch size 2000
+                patch_data = np.concatenate((patch_data, np.zeros((2000 - patch_data.shape[0], patch_data.shape[1], patch_data.shape[2]))), axis=0)
+            if self.config['grid_batch']:
+                shape = patch_data.shape
+                patch_grid = np.zeros((2*shape[0] - 1, 32,  32))
+                idx = list(range(0, patch_grid.shape[0], 2))
+                patch_grid[idx] = patch_data
+                patch_data = np.reshape(patch_grid, (1, -1, 32))
+
+            if self.config['model_type'] == 'tflite':
+                loc_returns = self._run_tflite(np.expand_dims(patch_data, -1))
+                loc_returns = loc_returns[:batch_size]
+                loc_feat = loc_returns
+                kpt_mb = np.ones((loc_returns.shape[0], 1))
+            elif self.config['model_type'] == 'trt':
+                loc_returns = self._run_trt(np.expand_dims(patch_data, -1))
+                loc_returns = loc_returns[:batch_size]
+                loc_feat = loc_returns
+                kpt_mb = np.ones((loc_returns.shape[0], 1))
+            elif self.config['model_type'] == 'tpu':
+                loc_returns = self._run_tpu(np.expand_dims(patch_data, -1))
+                loc_returns = loc_returns[:batch_size]
+                loc_feat = loc_returns
+                kpt_mb = np.ones((loc_returns.shape[0], 1))
+            elif self.config['model_type'] == 'keras':
+                loc_returns = self._run_keras(np.expand_dims(patch_data, -1))
+                loc_returns = loc_returns[:batch_size]
+                loc_feat = loc_returns
+                kpt_mb = np.ones((loc_returns.shape[0], 1))
+            elif self.config['model_type'] == 'pbv2':
+                self.output_tensors = ["feat_tower0/conv6/Conv2D:0"]
+                loc_returns = sess.run(self.output_tensors,
+                                       feed_dict={"input/net_input:0": np.expand_dims(patch_data, -1)})
+                # squeeze dimensions
+                loc_returns = np.squeeze(loc_returns[0])
+                loc_returns = loc_returns[:batch_size]
+                loc_feat = loc_returns
+                kpt_mb = np.ones((loc_returns.shape[0], 1))
+            else:
+                loc_returns = sess.run(self.output_tensors,
+                                       feed_dict={"input:0": np.expand_dims(patch_data, -1)})
+                loc_returns = loc_returns[:,:batch_size,:]
+                loc_feat = loc_returns[0]
+                kpt_mb = loc_returns[1]
+            return loc_feat, kpt_mb
         def _worker(patch_queue, sess, loc_feat, kpt_mb):
             """The worker thread."""
             while True:
@@ -223,32 +270,34 @@ class LocModel(BaseModel):
         if not self.config['dense_desc']:
             self.sift_wrapper.build_pyramid(gray_img)
             all_patches = self.sift_wrapper.get_patches(cv_kpts)
-            # get iteration number
-            batch_size = self.config['batch_size']
-            if num_patch % batch_size > 0:
-                loop_num = int(np.floor(float(num_patch) / float(batch_size)))
+            if True:    # run without threading
+                loc_feat, kpt_mb = _run_local(all_patches, self.sess)
             else:
-                loop_num = int(num_patch / batch_size - 1)
-            # create input thread
-            loc_feat = []
-            kpt_mb = []
-            patch_queue = Queue()
-            worker_thread = Thread(target=_worker, args=(patch_queue, self.sess, loc_feat, kpt_mb))
-            worker_thread.daemon = True
-            worker_thread.start()
-            # enqueue
-            for i in range(loop_num + 1):
-                if i < loop_num:
-                    patch_queue.put(all_patches[i * batch_size: (i + 1) * batch_size])
+                # get iteration number
+                batch_size = self.config['batch_size']
+                if num_patch % batch_size > 0:
+                    loop_num = int(np.floor(float(num_patch) / float(batch_size)))
                 else:
-                    patch_queue.put(all_patches[i * batch_size:])
-            # poison pill
-            patch_queue.put(None)
-            # wait for extraction.
-            worker_thread.join()
-            loc_feat = np.concatenate(loc_feat, axis=0)
-            kpt_mb = np.concatenate(kpt_mb, axis=0)
-
+                    loop_num = int(num_patch / batch_size - 1)
+                # create input thread
+                loc_feat = []
+                kpt_mb = []
+                patch_queue = Queue()
+                worker_thread = Thread(target=_worker, args=(patch_queue, self.sess, loc_feat, kpt_mb))
+                worker_thread.daemon = True
+                worker_thread.start()
+                # enqueue
+                for i in range(loop_num + 1):
+                    if i < loop_num:
+                        patch_queue.put(all_patches[i * batch_size: (i + 1) * batch_size])
+                    else:
+                        patch_queue.put(all_patches[i * batch_size:])
+                # poison pill
+                patch_queue.put(None)
+                # wait for extraction.
+                worker_thread.join()
+                loc_feat = np.concatenate(loc_feat, axis=0)
+                kpt_mb = np.concatenate(kpt_mb, axis=0)
         else:
             import cv2
             # compose affine crop matrix.
