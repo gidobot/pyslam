@@ -45,10 +45,10 @@ class LocModel(BaseModel):
         #             self.bindings.append(int(self.output_memory))
         #     self.stream = cuda.Stream()
 
-    def __del__():
+    def __del__(self):
         if self.config['model_type'] == 'trt':
             self.cuda_driver_context.pop()
-            
+
     def _init_model(self):
         self.sift_wrapper = SiftWrapper(
             n_feature=self.config['n_feature'],
