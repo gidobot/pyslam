@@ -133,18 +133,21 @@ class LocModel(BaseModel):
     def _run_trt(self, input):
         input_buffer = np.ascontiguousarray(input.astype(np.float32))
         self.cuda_driver_context.push()
-        start = time.perf_counter()
-        # Transfer input data to the GPU.
-        self.cuda.memcpy_htod_async(self.input_memory, input_buffer, self.stream)
-        # Run inference
-        self.context.execute_async_v2(bindings=self.bindings, stream_handle=self.stream.handle)
-        # Transfer prediction output from the GPU.
-        self.cuda.memcpy_dtoh_async(self.output_buffer, self.output_memory, self.stream)
-        # Synchronize the stream
-        self.stream.synchronize()
+        # start = time.perf_counter()
+        for i in range(100):
+            if i == 20:
+                start = time.perf_counter()
+            # Transfer input data to the GPU.
+            self.cuda.memcpy_htod_async(self.input_memory, input_buffer, self.stream)
+            # Run inference
+            self.context.execute_async_v2(bindings=self.bindings, stream_handle=self.stream.handle)
+            # Transfer prediction output from the GPU.
+            self.cuda.memcpy_dtoh_async(self.output_buffer, self.output_memory, self.stream)
+            # Synchronize the stream
+            self.stream.synchronize()
         end = time.perf_counter()
         self.cuda_driver_context.pop()
-        print("Time to compute 2000 TensorRT descriptors: {}ms".format((end - start)*1000))
+        print("Time to compute 2000 TensorRT descriptors: {}ms".format((end - start)*1000/80))
         # return np.reshape(self.output_buffer.astype(np.float32), (-1, 128))
         #import pdb; pdb.set_trace()
         return np.reshape(self.output_buffer, (-1, 128))
