@@ -61,7 +61,7 @@ class ContextDescFeature2D:
     def __init__(self,
                  num_features=2000,
                  n_sample=2048,              #  Maximum number of sampled keypoints per octave
-                 model_type='keras',                  
+                 model_type='trt',                  
                  do_tf_logging=False):  
         print('Using ContextDescFeature2D')   
         self.lock = RLock()
@@ -87,9 +87,12 @@ class ContextDescFeature2D:
         elif self.model_type == 'tflite':
             # loc_model_path = os.path.join(self.loc_model_path, 'loc_quant.tflite')
             loc_model_path = os.path.join(self.loc_model_path, 'loc_quant_keras.tflite')
+            # loc_model_path = os.path.join(self.loc_model_path, 'loc_quant_keras_grid.tflite')
         elif self.model_type == 'tpu':
             # loc_model_path = os.path.join(self.loc_model_path, 'loc_quant_keras_edgetpu.tflite')
             loc_model_path = os.path.join(self.loc_model_path, 'loc_quant_keras_grid_edgetpu.tflite')
+        elif self.model_type == 'trt':
+            loc_model_path = os.path.join(self.loc_model_path, 'descnet_trt.engine')
         elif self.model_type == 'keras':
             # loc_model_path = os.path.join(self.loc_model_path, 'descnet.hdf5')
             # loc_model_path = os.path.join(self.loc_model_path, 'descnet_lite.hdf5')
